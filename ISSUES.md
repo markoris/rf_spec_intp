@@ -1,0 +1,8 @@
+- implement preprocessing, evaluation, etc.
+	- change inputs to be interpolated in log-mass, switch back for evaluation
+- move docstring from init to relevant functions
+- need to add time as an interpolation variable
+- this just uses random forest for now, should make generally applicable
+	- write interpolators.py from interpolators_v2.py and update it to be better 
+- get tmax for spectra from hdf5 filename? good solution? fine for now.
+- get git-lfs installed and use it for this datafile
