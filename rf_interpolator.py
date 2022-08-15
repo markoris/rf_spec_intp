@@ -316,6 +316,7 @@ class intp_rf(object):
 			plt.yscale('log')
 			plt.gca().set_xticks([0.5, 1, 2, 3, 5, 10])
 			plt.gca().get_xaxis().set_major_formatter(ticker.FormatStrFormatter('%g'))
+			plt.gca().set_ylim(bottom=1e-12)
 			#plt.xlabel(r'$\lambda \ (\mu m)$')
 			plt.ylabel(r'$F_{\lambda} (erg \ s^{-1} \ cm^{-2} \ \mu m^{-1})$')
 			plt.xlabel(r'$\lambda$ ($\mu$m)')
