@@ -1,4 +1,8 @@
+import numpy as np
+import glob
+
 class intp_rf(object):
+
 
 	def __init__(self, seed=None, verbose=True):
 
@@ -24,24 +28,29 @@ class intp_rf(object):
 					Time in days to serve as the upper limit for spectra. This value is ceiling-limited by the choice of time cutoff used in convert_dat_to_h5.py
 		"""
 
-		import numpy as np
-		
 		self.verbose = verbose
 
 		if not seed == None: np.random.seed(seed)
+
+		### Potential interpolators
+
+		self.intp = None
+		self.mu_spec = None
+		self.std_spec = None
 
 		return
 
 	def load_data(self, path_to_sims_dir, path_to_spectra_h5, short_prms=True, short_wavs=True, t_max=38.055, theta=0):
 
-		import glob
 		import h5py
-		import numpy as np
 			
 		def get_params_from_filename(string):
 			name_parse = string.split('/')[-1].split('_')
 			params = np.array([name_parse[1], name_parse[5][-1], name_parse[7][2:], name_parse[8][2:], name_parse[9][2:], name_parse[10][2:]])
 			return params
+
+		self.t_max = t_max
+		self.theta = theta
 
 		### Prepare wavelength information	
 	
@@ -50,7 +59,7 @@ class intp_rf(object):
 		if short_wavs:
 			self.wav_idxs = np.where((wavs_full>0.4) & (wavs_full<10))[0] # above .4 micron and below 10 microns
 		else: 
-			self.wav_idxs = np.arange(len(self.wavs_full))
+			self.wav_idxs = np.arange(len(wavs_full))
 		
 		self.wavs = wavs_full[self.wav_idxs]
 
@@ -70,35 +79,72 @@ class intp_rf(object):
 		### First choose the cutoff time for spectra
 	
 		t_a = 0.125 # spectral start time
-		t_b = 49.351 # spectral end time
-		self.times = np.logspace(np.log10(t_a), np.log10(t_b), 70) # this should cover the full spectral possibilities range
+		#t_b = 49.351 # spectral end time
+		t_b = 20.749 # spectral end time FIXME this is only temporary, need to remake .hdf5 to include time up to 66 iteration
+		# FIXME re-run the .hdf5 creation using longest time available to all spectra. then re-write self.times to fit that number
+		self.times = np.logspace(np.log10(t_a), np.log10(t_b), 60) # this should cover the full spectral possibilities range
+		#self.times = np.logspace(np.log10(t_a), np.log10(t_b), 70) # this should cover the full spectral possibilities range FIXME
 		if self.verbose: print("Spectra times: ", self.times)
-		t_idx = np.argmin(np.abs(self.times-t_max))
-		self.times = self.times[:t_idx+1]
+	
+		if self.t_max is not None:
+			t_idx = np.argmin(np.abs(self.times-self.t_max))
+			self.times = self.times[:t_idx+1]
+			if self.verbose: print("Time index of %d corresponds to %f days" % (t_idx, self.times[t_idx]))
 
-		angles = np.degrees([np.arccos((1 - (i-1)*2/54.)) for i in np.arange(1, 55, 1)])
-		angle_idx = np.argmin(np.abs(angles-theta))
+		self. angles = np.degrees([np.arccos((1 - (i-1)*2/54.)) for i in np.arange(1, 55, 1)])
+		if theta is not None:
+			angle_idx = np.argmin(np.abs(self.angles-theta))
+			if self.verbose: print("Angle index of %d corresponds to %f degrees" % (angle_idx, self.angles[angle_idx]))
 
-		if self.verbose: 
-			print("Time index of %d corresponds to %f days" % (t_idx, self.times[t_idx]))
-			print("Angle index of %d corresponds to %f degrees" % (angle_idx, angles[angle_idx]))
+		if self.verbose: print("Loading h5 file, this may take a while on the first execution")
 	
 		h5_load = h5py.File(path_to_spectra_h5, 'r')
 		data = h5_load['spectra'][:]
-		spec_all = data.reshape(files.shape[0], self.times.shape[0], wavs_full.shape[0], angles.shape[0]) # this is predetermined right now, consider relaxing in the future
-		spec_all = spec_all[:, t_idx, self.wav_idxs, angle_idx] # right now we are taking the latest time in the spectrum, eventually expand this to interpolation across time...	
-
+		spec_all = data.reshape(files.shape[0], self.times.shape[0], wavs_full.shape[0], self.angles.shape[0]) # this is predetermined right now, consider relaxing in the future
+		
 		self.params = params_all
 		self.spectra = spec_all
+		
+		if self.t_max is None and theta is None: # does not specify time or angle index
+			return
+
+		if self.t_max is None or theta is None: # one of angle or time unspecified
+
+			if self.t_max is None:
+				self.spectra = self.spectra[:, :, self.wav_idxs, angle_idx] # only angle specified, all times
+				return
+
+			if theta is None:
+				self.spectra = self.spectra[:, t_idx, self.wav_idxs, :] # only time specified, all angles
+
+		self.spectra = self.spectra[:, t_idx, self.wav_idxs, angle_idx]	# time and angle specified
 
 		return
 
+	def append_input_parameter(self, values_to_append, axis_to_append):
+
+		'''
+		Reduces the target array by 1 dimension to treat the replaced dimension as an input training variable.
+		Spectra by default have shape [N, time, wavelength, angle] where N is the number of simulations.
+		To add time as a training parameter, set t_max=None and angle=0 in load_data(), for example.
+		This yields self.spectra.shape = [N, time, wavelength].
+		The values_to_append array will be the times corresponding to the time column (axis=1) of self.spectra.
+		Thus, this function would be called as append_input_parameter(self, self.times, 1).
+		This would then yield self.params = [Md, vd, Mw, vd, t], and self.spectra would have shape [N*time, wavelength].
+		Therefore, the dimension of self.spectra is reduced by 1, and the dimension of self.params is increased by 1.
+		'''
+
+		import data_format_1d as df1d
+
+		self.params, self.spectra = df1d.format(self.params, self.spectra, values_to_append, axis_to_append)
+
+		return	
+
 	def create_test_set(self, size=1):
 
-		import numpy as np
-		
 		if self.params is None or self.spectra is None:
 			print('No data loaded, run load_data() first!')
+			return
 
 		test_indices = np.random.choice(np.arange(self.params.shape[0]), size=size, replace=False)
 		test_indices = np.sort(test_indices)
@@ -121,7 +167,12 @@ class intp_rf(object):
 
 			test_indices -= 1
 
-		if self.verbose: print('Test set parameters are: ', self.params_test)
+		if self.verbose: 
+			print('Test set parameters are: ', self.params_test)
+			print('Test set shape is: ', self.params_test.shape)
+			print('Training set shape is ', self.params.shape)
+
+			
 
 		return
 			
@@ -129,154 +180,151 @@ class intp_rf(object):
 
 		if self.params is None or self.spectra is None:
 			print('No data loaded, run load_data() first!')
+			return
+
+		if self.verbose: print("Preprocessing data for training")
+
+		self.spectra[np.where(self.spectra <= 0)] = np.min(self.spectra[np.nonzero(self.spectra)])/10
+		self.spectra = np.log10(self.spectra)
+
+		self.mu_spec = np.mean(self.spectra, axis=0)
+		self.std_spec = np.std(self.spectra, axis=0)
+		self.std_spec[np.where(self.std_spec <= 0)] += 1e-10
+
+		if self.verbose: print(self.mu_spec.shape, self.std_spec.shape)
+
+		self.spectra -= self.mu_spec
+		self.spectra /= self.std_spec
+
+		### Convert to log-mass for more training-friendly inputs
+
+		self.params[:, [0, 2]] = np.log10(self.params[:, [0, 2]])
+		if self.t_max is None: self.params[:, 4] = np.log10(self.params[:, 4])
 
 		return
 
-	def train(self):
+	def train(self, rf=False, gp=False, nn=False, nro=1, n_estimators=1000, max_depth=None):
+
+		if self.mu_spec is None or self.std_spec is None:
+			print("Run preprocess() before training!")
+			return
+
+		if np.any([rf, gp, nn]) == False:
+			print("Pick an interpolator to train!")
+			return
 
 		import interpolators as intps # REWRITE INTERPOLATORS_V2 TO BE LESS GARBAGE
+		
+		intp_library = {'rf': intps.RF(),
+				'gp': intps.GP(),
+				'nn': intps.NN(), }
+
+		self.intp_choice = np.array(['rf', 'gp', 'nn'])[[rf, gp, nn]][0]
+
+		if self.verbose: print("Using %s interpolator" % self.intp_choice)
+			
+		self.intp = intp_library[self.intp_choice]
+
+		if self.verbose: print("Starting training, this may take a while...")
+
+		self.intp.train(self.params, self.spectra)
+
+		# choose self.intp from dict/list based on kwarg to train()
 
 		return
 
-	def evaluate(self):
+	def evaluate(self, inputs=None, ret_out=False):
+
+		# add check to see if training has been run
+
+		if self.intp == None:
+			print("No interpolators trained! Please run train() first.")
+			return
+
+		if inputs is None:
+			inputs = self.params_test
+
+		if inputs.ndim < 2:
+			inputs.reshape(1, -1)
+
+		inputs[:, [0, 2]] = np.log10(inputs[:, [0, 2]])
+		if self.t_max is None: inputs[:, 4] = np.log10(inputs[:, 4])
+
+		self.prediction = self.intp.evaluate(inputs)  #make the actual interpolators interface
+
+		self.prediction *= self.std_spec
+		self.prediction += self.mu_spec
+
+		self.prediction = 10**self.prediction
+
+		if self.verbose: print('Prediction shape is ', self.prediction.shape)
+
+		if ret_out == True:
+			return self.prediction # if this exists, need to add an option to make_plots to plot external input
 
 		return
 
+	def make_plots(self, filter_bands=True,):
 
-	def plot(self):
+		import matplotlib.pyplot as plt
+		from matplotlib import ticker
+		import matplotlib.patheffects as PathEffects
+
+		plt.rc('font', size=30)
+		plt.rc('lines', lw=3)
+
+		self.params_test[:, [0, 2]] = 10**self.params_test[:, [0,2]]
+		if self.params.shape[0] == 5: self.params_test[:, 4] = 10**self.params_test[:, 4]
+
+		for idx in range(self.params_test.shape[0]):
+
+			plt.figure(figsize=(19.2, 10.8))
+			plt.subplots_adjust(right=0.95)
+			
+			if filter_bands:	
+				filters = np.array(glob.glob('/home/marko.ristic/lanl/code_python3/lanl_data_conversions/filters/*'))
+				wavelengths = 'grizyJHKS'
+				colors = {"g": "blue", "r": "cyan", "i": "lime", "z": "green", "y": "greenyellow", "J": "gold",
+				         "H": "orange", "K": "red", "S": "darkred"}
+				for fltr in range(len(filters)):
+					filter_wavs = np.loadtxt(filters[fltr])
+					filter_wavs = filter_wavs[:, 0]*1e-4 # factor of 1e-4 to go from Angstroms to microns
+					text_loc = np.mean(filter_wavs)
+					text_loc = (np.log10(text_loc)-np.log10(self.wavs.min()))/(np.log10(self.wavs.max())-np.log10(self.wavs.min()))
+					wav_low, wav_upp = filter_wavs[0], filter_wavs[-1]
+					fltr_band = filters[fltr].split('/')[-1][0]
+					fltr_indx = wavelengths.find(fltr_band)
+					plt.axvspan(wav_low, wav_upp, alpha=0.5, color=colors[wavelengths[fltr_indx]])
+					#plt.text(text_loc_relative[fltr_indx], 1.015, fltr_band, color=colors[wavelengths[fltr_indx]], transform=plt.gca().transAxes, path_effects=[PathEffects.withStroke(linewidth=0.5, foreground="black")])
+					plt.text(text_loc, 1.015, fltr_band, color=colors[wavelengths[fltr_indx]], transform=plt.gca().transAxes, path_effects=[PathEffects.withStroke(linewidth=0.5, foreground="black")])
+			
+			if self.tmax is not None and self.theta is not None: 
+				plt.title(r"TP   wind2   $M_d$={0:.4f}   $v_d$={1:.3f}   $M_w$={2:.4f}   $v_w$={3:.3f}".format(*self.params_test[idx][0:4]), y=1.06)
+			if self.tmax is None and self.theta is not None:
+				plt.title(r"TP   wind2   $M_d$={0:.4f}   $v_d$={1:.3f}   $M_w$={2:.4f}   $v_w$={3:.3f}   $t$={4:.3f}".format(*self.params_test[idx][0:5]), y=1.06)
+			if self.theta is None and self.t_max is not None:
+				plt.title(r"TP   wind2   $M_d$={0:.4f}   $v_d$={1:.3f}   $M_w$={2:.4f}   $v_w$={3:.3f}   $\theta$={4:.3f}".format(*self.params_test[idx][0:5]), y=1.06)
+			if self.theta is None and self.t_max is None:
+				plt.title(r"TP  wind2  $M_d$={0:.4f}  $v_d$={1:.3f}  $M_w$={2:.4f}  $v_w$={3:.3f}  $t$={4:.3f}  $\theta$={5:.3f}".format(*self.params_test[idx][0:6]), y=1.06)
+			plt.plot(self.wavs, self.spectra_test[idx], label='true', color='k')
+			plt.plot(self.wavs, self.prediction[idx], label='intp', color='red')
+			plt.xscale('log')
+			plt.yscale('log')
+			plt.gca().set_xticks([0.5, 1, 2, 3, 5, 10])
+			plt.gca().get_xaxis().set_major_formatter(ticker.FormatStrFormatter('%g'))
+			#plt.xlabel(r'$\lambda \ (\mu m)$')
+			plt.ylabel(r'$F_{\lambda} (erg \ s^{-1} \ cm^{-2} \ \mu m^{-1})$')
+			plt.xlabel(r'$\lambda$ ($\mu$m)')
+			plt.legend()
+			if self.t_max is not None and self.theta is not None:
+				plt.savefig("intp_figures/{0}_TP_wind2_md{1:.4f}_vd{2:.3f}_mw{3:.4f}_vw{4:.3f}.pdf".format(self.intp_choice, *self.params_test[idx][0:4]))
+			if self.t_max is None and self.theta is not None:
+				plt.savefig("intp_figures/{0}_TP_wind2_md{1:.4f}_vd{2:.3f}_mw{3:.4f}_vw{4:.3f}_t{5:.3f}.pdf".format(self.intp_choice, *self.params_test[idx][0:5]))
+			if self.theta is None and self.t_max is not None:
+				plt.savefig("intp_figures/{0}_TP_wind2_md{1:.4f}_vd{2:.3f}_mw{3:.4f}_vw{4:.3f}_theta{5:.3f}.pdf".format(self.intp_choice, *self.params_test[idx][0:5]))
+			if self.t_max is None and self.theta is None:
+				plt.savefig("intp_figures/{0}_TP_wind2_md{1:.4f}_vd{2:.3f}_mw{3:.4f}_vw{4:.3f}_t{5:.3f}_theta{6:.3f}.pdf".format(self.intp_choice, *self.params_test[idx][0:6]))
+			plt.close()
 
 		return
 
-# sample code for separate script
-
-#intp = rf_intp('/home/marko.ristic/lanl/knsc1_active_learning/*spec*', 'h5_data/TP_wind2_spectra.h5',)
-
-
-
-
-
-
-
-
-
-
-
-
-
-#wavs = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024) # in cm
-#wav_idxs = np.where((wavs>4e-5) & (wavs<1e-3))[0] # limits to above .4 micron and up to 10 micron, these are cm wavelengths!!
-#wavs *= 1e4 # from cm to microns
-
-#np.random.seed(100)
-'''
-files = np.array(glob.glob('/home/marko.ristic/lanl/knsc1_active_learning/*spec*'))
-files.sort()
-
-for idx in range(files.shape[0]):
-	params = get_params(files[idx]) # parse filenames into parameters
-	try: params_all = np.concatenate((params_all, params[None, :]), axis=0)
-	except NameError: params_all = params[None, :]
-params_all = params_all[:, 2:].astype('float')
-print(params_all.shape)
-
-h5_load = h5py.File('h5_data/TP_wind2_spectra.h5', 'r')
-data = h5_load['spectra'][:]
-spec_all = data.reshape(412, 60, 1024, 54)
-spec_all = spec_all[:, 50, wav_idxs, 0] # t ~ 10 days, 0 <= theta <= 17 deg, 0.4 mu <= lambda <= 10 mu
-
-
-
-
-import h5py
-import glob
-import slick
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import ticker
-import matplotlib.patheffects as PathEffects
-
-plt.rc('font', size=30)
-plt.rc('lines', lw=3)
-
-def get_params(string):
-	name_parse = string.split('/')[-1].split('_')
-	params = np.array([name_parse[1], name_parse[5][-1], name_parse[7][2:], name_parse[8][2:], name_parse[9][2:], name_parse[10][2:]])
-	return params
-
-wavs = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024) # in cm
-wav_idxs = np.where((wavs>4e-5) & (wavs<1e-3))[0] # limits to above .4 micron and up to 10 micron, these are cm wavelengths!!
-wavs *= 1e4 # from cm to microns
-
-np.random.seed(100)
-
-files = np.array(glob.glob('/home/marko.ristic/lanl/knsc1_active_learning/*spec*'))
-files.sort()
-
-for idx in range(files.shape[0]):
-	params = get_params(files[idx]) # parse filenames into parameters
-	try: params_all = np.concatenate((params_all, params[None, :]), axis=0)
-	except NameError: params_all = params[None, :]
-params_all = params_all[:, 2:].astype('float')
-print(params_all.shape)
-
-h5_load = h5py.File('h5_data/TP_wind2_spectra.h5', 'r')
-data = h5_load['spectra'][:]
-spec_all = data.reshape(412, 60, 1024, 54)
-spec_all = spec_all[:, 50, wav_idxs, 0] # t ~ 10 days, 0 <= theta <= 17 deg, 0.4 mu <= lambda <= 10 mu
-
-mu, sigma = np.mean(spec_all, axis=0), np.std(spec_all, axis=0)
-spec_all -= mu
-spec_all /= sigma
-
-idx = np.random.choice(np.arange(spec_all.shape[0]))
-
-test_params = params_all[idx]
-test_spec = spec_all[idx]
-params_all = np.delete(params_all, idx, axis=0)
-spec_all = np.delete(spec_all, idx, axis=0)
-
-print(params.shape)
-print(spec_all.shape)
-
-intp_rf = slick.Interpolator() # train with random forest which typically has better convergence to verify fidelity of NN output
-intp_rf.train(params_all, spec_all) # actual training with RF
-intp_spec = intp_rf.evaluate(test_params[None, :]) 
-
-test_spec *= sigma
-test_spec += mu
-
-intp_spec *= sigma
-intp_spec += mu
-
-plt.figure(figsize=(19.2, 10.8))
-plt.subplots_adjust(right=0.95)
-
-filters = np.array(glob.glob('/home/marko.ristic/lanl/code_python3/lanl_data_conversions/filters/*'))
-wavelengths = 'grizyJHKS'
-colors = {"g": "blue", "r": "cyan", "i": "lime", "z": "green", "y": "greenyellow", "J": "gold",
-         "H": "orange", "K": "red", "S": "darkred"}
-text_loc_relative = [0.09, 0.165, 0.225, 0.26, 0.3, 0.35, 0.43, 0.51, 0.72]
-for fltr in range(len(filters)):
-	filter_wavs = np.loadtxt(filters[fltr])
-	filter_wavs = filter_wavs[:, 0]*1e-4 # factor of 1e-4 to go from Angstroms to microns
-	text_loc = np.mean(filter_wavs)
-	text_loc -= text_loc/20
-	wav_low, wav_upp = filter_wavs[0], filter_wavs[-1]
-	fltr_band = filters[fltr].split('/')[-1][0]
-	fltr_indx = wavelengths.find(fltr_band)
-	plt.axvspan(wav_low, wav_upp, alpha=0.5, color=colors[wavelengths[fltr_indx]])
-	plt.text(text_loc_relative[fltr_indx], 1.015, fltr_band, color=colors[wavelengths[fltr_indx]], transform=plt.gca().transAxes, path_effects=[PathEffects.withStroke(linewidth=0.5, foreground="black")])
-
-plt.title(r"TP   wind2   $M_d$={0:.4f}   $v_d$={1:.3f}   $M_w$={2:.4f}   $v_w$={3:.3f}".format(*test_params[0:4]), y=1.06)
-plt.plot(wavs[wav_idxs], test_spec, label='true', color='k')
-plt.plot(wavs[wav_idxs], intp_spec, label='intp', color='red')
-plt.xscale('log')
-plt.yscale('log')
-plt.gca().set_xticks([0.5, 1, 2, 3, 5, 10])
-plt.gca().get_xaxis().set_major_formatter(ticker.FormatStrFormatter('%g'))
-#plt.xlabel(r'$\lambda \ (\mu m)$')
-plt.ylabel(r'$F_{\lambda} (erg \ s^{-1} \ cm^{-2} \ \mu m^{-1})$')
-plt.xlabel(r'$\lambda$ ($\mu$m)')
-plt.legend()
-plt.savefig('rf_training_h5.pdf')
-'''
