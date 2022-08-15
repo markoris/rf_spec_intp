@@ -274,7 +274,8 @@ class intp_rf(object):
 		plt.rc('lines', lw=3)
 
 		self.params_test[:, [0, 2]] = 10**self.params_test[:, [0,2]]
-		if self.params.shape[0] == 5: self.params_test[:, 4] = 10**self.params_test[:, 4]
+		if self.t_max is None and self.theta is not None: self.params_test[:, 4] = 10**self.params_test[:, 4]
+		#if self.theta is None and self.t_max is not None: continue # FIXME do the appropriate angle conversion here
 
 		for idx in range(self.params_test.shape[0]):
 
