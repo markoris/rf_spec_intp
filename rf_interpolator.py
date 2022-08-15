@@ -266,12 +266,15 @@ class intp_rf(object):
 
 	def make_plots(self, filter_bands=True,):
 
+		import os
 		import matplotlib.pyplot as plt
 		from matplotlib import ticker
 		import matplotlib.patheffects as PathEffects
 
 		plt.rc('font', size=30)
 		plt.rc('lines', lw=3)
+
+		if not os.path.isdir('intp_figures'): os.mkdir('intp_figures')
 
 		self.params_test[:, [0, 2]] = 10**self.params_test[:, [0,2]]
 		if self.t_max is None and self.theta is not None: self.params_test[:, 4] = 10**self.params_test[:, 4]
@@ -299,9 +302,9 @@ class intp_rf(object):
 					#plt.text(text_loc_relative[fltr_indx], 1.015, fltr_band, color=colors[wavelengths[fltr_indx]], transform=plt.gca().transAxes, path_effects=[PathEffects.withStroke(linewidth=0.5, foreground="black")])
 					plt.text(text_loc, 1.015, fltr_band, color=colors[wavelengths[fltr_indx]], transform=plt.gca().transAxes, path_effects=[PathEffects.withStroke(linewidth=0.5, foreground="black")])
 			
-			if self.tmax is not None and self.theta is not None: 
+			if self.t_max is not None and self.theta is not None: 
 				plt.title(r"TP   wind2   $M_d$={0:.4f}   $v_d$={1:.3f}   $M_w$={2:.4f}   $v_w$={3:.3f}".format(*self.params_test[idx][0:4]), y=1.06)
-			if self.tmax is None and self.theta is not None:
+			if self.t_max is None and self.theta is not None:
 				plt.title(r"TP   wind2   $M_d$={0:.4f}   $v_d$={1:.3f}   $M_w$={2:.4f}   $v_w$={3:.3f}   $t$={4:.3f}".format(*self.params_test[idx][0:5]), y=1.06)
 			if self.theta is None and self.t_max is not None:
 				plt.title(r"TP   wind2   $M_d$={0:.4f}   $v_d$={1:.3f}   $M_w$={2:.4f}   $v_w$={3:.3f}   $\theta$={4:.3f}".format(*self.params_test[idx][0:5]), y=1.06)
