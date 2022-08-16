@@ -42,7 +42,7 @@ class intp_rf(object):
 
 	def load_data(self, path_to_sims_dir, path_to_spectra_h5, short_prms=True, short_wavs=True, t_max=38.055, theta=0):
 
-		import h5py
+		import h5py, sys
 			
 		def get_params_from_filename(string):
 			name_parse = string.split('/')[-1].split('_')
@@ -67,6 +67,9 @@ class intp_rf(object):
 	
 		files = np.array(glob.glob(path_to_sims_dir))
 		files.sort()
+		if len(files) < 1: 
+			print("There don't appear to be any spectra files in that directory! Exiting without loaded data.")
+			sys.exit()
 		for idx in range(files.shape[0]):
 			params = get_params_from_filename(files[idx]) # parse filenames into parameters
 			try: params_all = np.concatenate((params_all, params[None, :]), axis=0)
