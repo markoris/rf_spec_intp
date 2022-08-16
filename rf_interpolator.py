@@ -286,7 +286,7 @@ class intp_rf(object):
 			plt.subplots_adjust(right=0.95)
 			
 			if filter_bands:	
-				filters = np.array(glob.glob('/home/marko.ristic/lanl/code_python3/lanl_data_conversions/filters/*'))
+				filters = np.array(glob.glob('filters/*'))
 				wavelengths = 'grizyJHKS'
 				colors = {"g": "blue", "r": "cyan", "i": "lime", "z": "green", "y": "greenyellow", "J": "gold",
 				         "H": "orange", "K": "red", "S": "darkred"}
