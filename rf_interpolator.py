@@ -4,7 +4,7 @@ import glob
 class intp_rf(object):
 
 
-	def __init__(self, seed=None, verbose=True):
+	def __init__(self, seed=None, verbose=True, debugging=False):
 
 		"""
 		Sets up the Random Forest (RF) interpolator for interpolation of kilonova spectra in the LANL published format.
@@ -37,10 +37,11 @@ class intp_rf(object):
 		self.intp = None
 		self.mu_spec = None
 		self.std_spec = None
+		self.debugging = debugging
 
 		return
 
-	def load_data(self, path_to_sims_dir, path_to_spectra_h5, short_prms=True, short_wavs=True, t_max=38.055, theta=0):
+	def load_data(self, path_to_sims_dir, path_to_spectra_h5, short_prms=True, short_wavs=True, t_max=38.055, theta=0, downsample_theta=False):
 
 		import h5py, sys
 			
@@ -87,6 +88,8 @@ class intp_rf(object):
 		# FIXME re-run the .hdf5 creation using longest time available to all spectra. then re-write self.times to fit that number
 		self.times = np.logspace(np.log10(t_a), np.log10(t_b), 60) # this should cover the full spectral possibilities range
 		#self.times = np.logspace(np.log10(t_a), np.log10(t_b), 70) # this should cover the full spectral possibilities range FIXME
+		self.angles = np.degrees([np.arccos((1 - (i-1)*2/54.)) for i in np.arange(1, 55, 1)])
+	
 		if self.verbose: print("Spectra times: ", self.times)
 	
 		if self.t_max is not None:
@@ -94,8 +97,7 @@ class intp_rf(object):
 			self.times = self.times[:t_idx+1]
 			if self.verbose: print("Time index of %d corresponds to %f days" % (t_idx, self.times[t_idx]))
 
-		self. angles = np.degrees([np.arccos((1 - (i-1)*2/54.)) for i in np.arange(1, 55, 1)])
-		if theta is not None:
+		if self.theta is not None:
 			angle_idx = np.argmin(np.abs(self.angles-theta))
 			if self.verbose: print("Angle index of %d corresponds to %f degrees" % (angle_idx, self.angles[angle_idx]))
 
@@ -103,12 +105,22 @@ class intp_rf(object):
 	
 		h5_load = h5py.File(path_to_spectra_h5, 'r')
 		data = h5_load['spectra'][:]
-		spec_all = data.reshape(files.shape[0], self.times.shape[0], wavs_full.shape[0], self.angles.shape[0]) # this is predetermined right now, consider relaxing in the future
+		spec_all = data.reshape(files.shape[0], self.times.shape[0], wavs_full.shape[0], self.angles.shape[0])
 		
+		if self.verbose: print('Data loaded and reshaped')
+
 		self.params = params_all
 		self.spectra = spec_all
-		
+
+		if self.debugging:
+			self.params = self.params[:20, ...]
+			self.spectra = self.spectra[:20, ...]
+
 		if self.t_max is None and theta is None: # does not specify time or angle index
+			self.spectra = self.spectra[:, :, self.wav_idxs, :]
+			if downsample_theta: 
+				self.spectra = self.spectra[:, :, :, np.arange(0, self.angles.shape[0]-1, 2)]
+				self.angles = np.degrees([np.arccos((1 - (i-1)*2/27.)) for i in np.arange(1, 28, 1)])
 			return
 
 		if self.t_max is None or theta is None: # one of angle or time unspecified
@@ -117,11 +129,14 @@ class intp_rf(object):
 				self.spectra = self.spectra[:, :, self.wav_idxs, angle_idx] # only angle specified, all times
 				return
 
-			if theta is None:
+			if self.theta is None:
 				self.spectra = self.spectra[:, t_idx, self.wav_idxs, :] # only time specified, all angles
+				if downsample_theta: 
+					self.spectra = self.spectra[:, :, np.arange(0, self.angles.shape[0]-1, 2)]
+					self.angles = np.degrees([np.arccos((1 - (i-1)*2/27.)) for i in np.arange(1, 28, 1)])
+				return
 
 		self.spectra = self.spectra[:, t_idx, self.wav_idxs, angle_idx]	# time and angle specified
-
 		return
 
 	def append_input_parameter(self, values_to_append, axis_to_append):
@@ -140,6 +155,8 @@ class intp_rf(object):
 		import data_format_1d as df1d
 
 		self.params, self.spectra = df1d.format(self.params, self.spectra, values_to_append, axis_to_append)
+
+		print(self.params.shape, self.spectra.shape)
 
 		return	
 
@@ -202,7 +219,11 @@ class intp_rf(object):
 		### Convert to log-mass for more training-friendly inputs
 
 		self.params[:, [0, 2]] = np.log10(self.params[:, [0, 2]])
-		if self.t_max is None: self.params[:, 4] = np.log10(self.params[:, 4])
+		if self.t_max is None and self.theta is not None: self.params[:, 4] = np.log10(self.params[:, 4])
+		if self.theta is None and self.t_max is not None: self.params[:, 4] = np.cos(np.radians(self.params[:, 4]))
+		if self.t_max is None and self.theta is None: # FIXME add a way to differentiate which axis is time/angle to not assume time gets added as an input parameter prior to angle
+			self.params[:, 4] = np.log10(self.params[:, 4])
+			self.params[:, 5] = np.cos(np.radians(self.params[:, 5]))
 
 		return
 
@@ -251,7 +272,11 @@ class intp_rf(object):
 			inputs.reshape(1, -1)
 
 		inputs[:, [0, 2]] = np.log10(inputs[:, [0, 2]])
-		if self.t_max is None: inputs[:, 4] = np.log10(inputs[:, 4])
+		if self.t_max is None and self.theta is not None: inputs[:, 4] = np.log10(inputs[:, 4])
+		if self.theta is None and self.t_max is not None: inputs[:, 4] = np.cos(np.radians(inputs[:, 4]))
+		if self.t_max is None and self.theta is None: # FIXME same as in preprocess(), check data to not assume that time added as input parameter before angle
+			inputs[:, 4] = np.log10(inputs[:, 4])
+			inputs[:, 5] = np.log10(inputs[:, 5])
 
 		self.prediction = self.intp.evaluate(inputs)  #make the actual interpolators interface
 
@@ -281,7 +306,10 @@ class intp_rf(object):
 
 		self.params_test[:, [0, 2]] = 10**self.params_test[:, [0,2]]
 		if self.t_max is None and self.theta is not None: self.params_test[:, 4] = 10**self.params_test[:, 4]
-		#if self.theta is None and self.t_max is not None: continue # FIXME do the appropriate angle conversion here
+		if self.theta is None and self.t_max is not None: self.params_test[:, 4] = np.degrees(np.arccos(self.params_test[:, 4]))
+		if self.t_max is None and self.theta is None: # FIXME same as preprocess(), remove assumption that time added as input param before angle
+			self.params_test[:, 4] = 10**self.params_test[:, 4]
+			self.params_test[:, 5] = np.degrees(np.arccos(self.params_test[:, 5]))
 
 		for idx in range(self.params_test.shape[0]):
 
