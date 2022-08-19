@@ -31,7 +31,7 @@ import rf_interpolator as rfi
 ##intp.evaluate()
 ##intp.make_plots()
 
-# free time, free angle interpolation
+# free time, free angle interpolation # CURRENTLY TIMES OUT ON LANL HPC CLUSTER
 intp = rfi.intp_rf(seed=100, verbose=True, debugging=False)
 intp.load_data('/net/scratch4/mristic/knsc1_active_learning/*spec*', '/net/scratch4/mristic/h5_data/TP_wind2_spectra.h5', t_max=None, theta=None, short_wavs=False, downsample_theta=True)
 intp.append_input_parameter(intp.times, 1, var='time') # [N, time, wav, angle] -> [N, wav, angle]
