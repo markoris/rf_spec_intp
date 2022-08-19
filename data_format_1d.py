@@ -7,8 +7,10 @@ def format(inputs, targets, inputs_to_append, target_axis_to_append, check_subze
 	'''
 
 	for i in range(targets.shape[target_axis_to_append]):
+		find_axis = [slice(None)]*(targets.ndim-1) # take all the values in the non-appended dimensions
+		find_axis = np.insert(find_axis, target_axis_to_append, i) # take the index in the relevant dimension
+		tgt = targets[tuple(find_axis)]
 		try:
-			tgt = np.take(targets, i, axis=target_axis_to_append) 
 			new_targets = np.concatenate((new_targets, tgt), axis=0)
 		except NameError:
 			new_targets = tgt # this will put all N simulations for the 0th new input, then all N simulations for the 1st, etc...
