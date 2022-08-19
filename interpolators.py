@@ -20,7 +20,6 @@ class GP(object):
 	def evaluate(self, inputs, return_std=True):
 
 		output, std = self.gpr.predict(inputs, return_std=return_std)
-		#output = output.flatten()
 
 		return output, std
 
@@ -39,13 +38,24 @@ class RF(object):
 
 	def evaluate(self, inputs):
 		
-		output = self.rfr.predict(inputs)#.flatten()
+		output = self.rfr.predict(inputs)
 
 		return output
 
 class NN(object):
 
+	class Net()
+	
+		def __init__(self):
+			return
+
+		def forward(self, x):
+			return x
+
 	def __init__(self):
+		return
+
+	def set_separation(self):
 		return
 
 	def train(self):
