@@ -1,13 +1,13 @@
 import numpy as np
 import glob
 
-class intp_rf(object):
+class intp(object):
 
 
-	def __init__(self, seed=None, verbose=True, debugging=False):
+	def __init__(self, seed=None, verbose=True, debugging=False, rf=False, gp=False, nn=False, nro=1, n_estimators=1000, max_depth=None, learning_rate_init=0.1, max_iter=500, solver='sgd', activation='tanh', learning_rate='adaptive'):
 
 		"""
-		Sets up the Random Forest (RF) interpolator for interpolation of kilonova spectra in the LANL published format.
+		Sets up the specified interpolator for interpolation of kilonova spectra in the LANL published format.
 
 		path_to_sims_dir: 	string
 				  	Path to directory containing simultions of spectra using LANL naming convention (as provided in https://zenodo.org/record/5745556)
@@ -27,17 +27,31 @@ class intp_rf(object):
 		cutoff:			float, default=21
 					Time in days to serve as the upper limit for spectra. This value is ceiling-limited by the choice of time cutoff used in convert_dat_to_h5.py
 		"""
+		
+		import interpolators as intps
 
 		self.verbose = verbose
 
 		if not seed == None: np.random.seed(seed)
 
-		### Potential interpolators
-
 		self.intp = None
 		self.mu_spec = None
 		self.std_spec = None
 		self.debugging = debugging
+
+		if np.any([rf, gp, nn]) == False:
+			print("Pick an interpolator to train!")
+			return
+		
+		intp_library = {'rf': intps.RF(n_estimators=n_estimators, max_depth=max_depth),
+				'gp': intps.GP(),
+				'nn': intps.NN(learning_rate_init=learning_rate_init, max_iter=max_iter, solver=solver, activation=activation, learning_rate=learning_rate), }
+
+		self.intp_choice = np.array(['rf', 'gp', 'nn'])[[rf, gp, nn]][0]
+
+		if self.verbose: print("Using %s interpolator" % self.intp_choice)
+			
+		self.intp = intp_library[self.intp_choice]
 
 		return
 
@@ -227,27 +241,11 @@ class intp_rf(object):
 
 		return
 
-	def train(self, rf=False, gp=False, nn=False, nro=1, n_estimators=1000, max_depth=None):
+	def train(self):
 
 		if self.mu_spec is None or self.std_spec is None:
 			print("Run preprocess() before training!")
 			return
-
-		if np.any([rf, gp, nn]) == False:
-			print("Pick an interpolator to train!")
-			return
-
-		import interpolators as intps # REWRITE INTERPOLATORS_V2 TO BE LESS GARBAGE
-		
-		intp_library = {'rf': intps.RF(),
-				'gp': intps.GP(),
-				'nn': intps.NN(), }
-
-		self.intp_choice = np.array(['rf', 'gp', 'nn'])[[rf, gp, nn]][0]
-
-		if self.verbose: print("Using %s interpolator" % self.intp_choice)
-			
-		self.intp = intp_library[self.intp_choice]
 
 		if self.verbose: print("Starting training, this may take a while...")
 
@@ -276,7 +274,8 @@ class intp_rf(object):
 		if self.theta is None and self.t_max is not None: inputs[:, 4] = np.cos(np.radians(inputs[:, 4]))
 		if self.t_max is None and self.theta is None: # FIXME same as in preprocess(), check data to not assume that time added as input parameter before angle
 			inputs[:, 4] = np.log10(inputs[:, 4])
-			inputs[:, 5] = np.log10(inputs[:, 5])
+			#inputs[:, 5] = np.log10(inputs[:, 5])
+			inputs[:, 5] = np.cos(np.radians(inputs[:, 5]))
 
 		self.prediction = self.intp.evaluate(inputs)  #make the actual interpolators interface
 

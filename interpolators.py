@@ -25,16 +25,17 @@ class GP(object):
 
 class RF(object):
 
-	def __init__(self):
-		return
-
-	def train(self, inputs, targets, n_estimators=1000, max_depth=None):
-
+	def __init__(self, n_estimators=1000, max_depth=None):
+		
 		from sklearn.ensemble import RandomForestRegressor
 		
-		regressor = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
+		self.rfr = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
 
-		self.rfr = regressor.fit(inputs, targets)
+		return
+
+	def train(self, inputs, targets):
+
+		self.rfr = self.rfr.fit(inputs, targets)
 
 	def evaluate(self, inputs):
 		
@@ -44,7 +45,7 @@ class RF(object):
 
 class NN(object):
 
-	class Net()
+	class Net():
 	
 		def __init__(self):
 			return
@@ -52,14 +53,20 @@ class NN(object):
 		def forward(self, x):
 			return x
 
-	def __init__(self):
+	def __init__(self, learning_rate_init, max_iter, solver, activation, learning_rate):
+		from sklearn.neural_network import MLPRegressor
+
+		self.nnr = MLPRegressor(learning_rate_init=learning_rate_init, max_iter=max_iter)
+		
 		return
 
-	def set_separation(self):
-		return
+	def set_separation(self, inputs, targets):
+		return 
 
-	def train(self):
+	def train(self, inputs, targets):
+		self.nnr = self.nnr.fit(inputs, targets)
 		return
 
 	def evaluate(self, inputs):
-		return
+		output = self.nnr.predict(inputs)
+		return output
