@@ -273,11 +273,15 @@ class intp(object):
 		if self.verbose: print('stopped saving model at ', time.localtime())
 		return
 
-	def load(self, name):
+	def load(self, name, fixed_time=False, fixed_angle=False, verbose=False):
 
 		import joblib
 
 		self.intp = joblib.load(name)
+
+		self.verbose = verbose
+		if not fixed_time: self.t_max = None
+		if not fixed_angle: self.theta = None
 
 		return
 
@@ -317,7 +321,7 @@ class intp(object):
 
 		return
 
-	def make_plots(self, filter_bands=True,):
+	def make_plots(self, filter_bands=True):
 
 		import os
 		import matplotlib.pyplot as plt
