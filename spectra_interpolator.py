@@ -255,6 +255,32 @@ class intp(object):
 
 		return
 
+	def save(self, name=None, compress=False):
+
+		import joblib, time
+
+		if name==None: name = str(self.intp_choice)+'_spec_intp_'+time.strftime("%Y%m%d-%Hh%Mm%Ss")
+
+		if self.verbose: print('started saving model at ', time.localtime())
+
+		if compress:
+
+			joblib.dump(self.intp, 'saved_models/'+name, compress='lzma')
+			if self.verbose: print('stopped saving compressed model at ', time.localtime())
+			return
+
+		joblib.dump(self.intp, name)
+		if self.verbose: print('stopped saving model at ', time.localtime())
+		return
+
+	def load(self, name):
+
+		import joblib
+
+		self.intp = joblib.load(name)
+
+		return
+
 	def evaluate(self, inputs=None, ret_out=False):
 
 		# add check to see if training has been run
