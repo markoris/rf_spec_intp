@@ -265,7 +265,7 @@ class intp(object):
 
 		if compress:
 
-			joblib.dump(self.intp, 'saved_models/'+name, compress='lzma')
+			joblib.dump(self.intp, name, compress='lzma')
 			if self.verbose: print('stopped saving compressed model at ', time.localtime())
 			return
 
@@ -279,10 +279,6 @@ class intp(object):
 
 		self.intp = joblib.load(name)
 
-		self.verbose = verbose
-		if not fixed_time: self.t_max = None
-		if not fixed_angle: self.theta = None
-
 		return
 
 	def evaluate(self, inputs=None, ret_out=False):
@@ -292,6 +288,8 @@ class intp(object):
 		if self.intp == None:
 			print("No interpolators trained! Please run train() first.")
 			return
+
+		inputs = np.copy(inputs)
 
 		if inputs is None:
 			inputs = self.params_test
