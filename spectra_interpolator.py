@@ -72,7 +72,8 @@ class intp(object):
 		wavs_full = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024)*1e4 # in microns (from 1e4 scaling factor)
 		
 		if short_wavs:
-			self.wav_idxs = np.where((wavs_full>0.4) & (wavs_full<10))[0] # above .4 micron and below 10 microns
+			#self.wav_idxs = np.where((wavs_full>0.4) & (wavs_full<10))[0] # above .4 micron and below 10 microns
+			self.wav_idxs = np.where((wavs_full>0.4) & (wavs_full<2.5))[0] # above .4 micron and below 10 microns
 		else: 
 			self.wav_idxs = np.arange(len(wavs_full))
 		
@@ -125,6 +126,8 @@ class intp(object):
 
 		self.params = params_all
 		self.spectra = spec_all
+
+		self.spectra *= 54 # isotropic equivalent : if only choosing one angular bin, multiply by 54 to create assumption that all 54 angular bins have the same emission
 
 		if self.debugging:
 			self.params = self.params[:20, ...]
@@ -289,10 +292,10 @@ class intp(object):
 			print("No interpolators trained! Please run train() first.")
 			return
 
-		inputs = np.copy(inputs)
-
 		if inputs is None:
 			inputs = self.params_test
+
+		else: inputs = np.copy(inputs)
 
 		if inputs.ndim < 2:
 			inputs.reshape(1, -1)
