@@ -1,4 +1,16 @@
 def third_component(M, v, kappa):
+	'''
+	Toy model implementation from Metzger's Kilonovae (2019): https://arxiv.org/pdf/1910.01617.pdf
+	
+	M: 	float
+		Ejecta mass in solar masses
+
+	v: 	float
+		Ejecta velocity in fraction of speed of light
+
+	kappa: 	float
+		Ejecta opacity in cm^2 g^-1
+	'''
 	import glob
 	import numpy as np
 	from matplotlib import ticker
