@@ -127,7 +127,8 @@ class intp(object):
 		self.params = params_all
 		self.spectra = spec_all
 
-		self.spectra *= 54 # isotropic equivalent : if only choosing one angular bin, multiply by 54 to create assumption that all 54 angular bins have the same emission
+		#self.spectra *= 54/(4*np.pi) # 4pi solid angle split over 54 angular bins, solid angle correction for one angular bin!
+		self.spectra *= 54 # solid angle correction for one angular bin, spectra already divided by 4*pi*Robs^2 where Robs = 10 pc
 
 		if self.debugging:
 			self.params = self.params[:20, ...]
@@ -186,14 +187,15 @@ class intp(object):
 		test_indices = np.random.choice(np.arange(self.params.shape[0]), size=size, replace=False)
 		test_indices = np.sort(test_indices)
 
-		if self.verbose: print('Test set parameters should be: ', self.params[test_indices])
+		test_times = np.random.choice(self.times, size, replace=True)
 
-		for idx in test_indices:
+		for idx in range(len(test_indices)):
 
-			param = self.params[idx]
-			spec = self.spectra[idx]
-			self.params = np.delete(self.params, idx, axis=0)
-			self.spectra = np.delete(self.spectra, idx, axis=0)
+			param = self.params[test_indices[idx]]
+			param = np.concatenate((param, test_times[idx].reshape(1)))
+			spec = self.spectra[test_indices[idx], np.argmin(np.abs(self.times-test_times[idx]))]
+			self.params = np.delete(self.params, test_indices[idx], axis=0)
+			self.spectra = np.delete(self.spectra, test_indices[idx], axis=0)
 
 			try:
 				self.params_test = np.concatenate((self.params_test, param[None, :]), axis=0)
@@ -204,12 +206,12 @@ class intp(object):
 
 			test_indices -= 1
 
+		if self.verbose: print('Test set parameters should be: ', self.params_test)
+
 		if self.verbose: 
 			print('Test set parameters are: ', self.params_test)
 			print('Test set shape is: ', self.params_test.shape)
 			print('Training set shape is ', self.params.shape)
-
-			
 
 		return
 			
