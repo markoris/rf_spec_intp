@@ -31,8 +31,6 @@ class RF(object):
 		
 		self.rfr = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
 
-		return
-
 	def train(self, inputs, targets):
 
 		self.rfr = self.rfr.fit(inputs, targets)
