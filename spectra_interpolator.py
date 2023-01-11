@@ -282,6 +282,8 @@ class intp(object):
 
 		import joblib
 
+		print("Loading model, this may take some time...")
+
 		self.intp = joblib.load(name)
 
 		return
