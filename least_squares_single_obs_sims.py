@@ -119,6 +119,8 @@ def least_squares(path_to_obs_dir, sim_params, sim_spectra, sim_times):
 	wavs_supernu = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024)*1e4 # from cm to microns (via 1e4 scaling factor)
 	sim_spectra /= (4e6)**2 # scaling 40 Mpc source distance with source assumed emitting from 10 pc
 
+	print('COMPARISON TO SIMULATIONS')
+
 	for t in range(len(times_orig)):
 		print('t = ', times_orig[t])
 		t_idx = np.argmin(np.abs(times_orig[t]-sim_times))
@@ -127,20 +129,20 @@ def least_squares(path_to_obs_dir, sim_params, sim_spectra, sim_times):
 		obs = np.loadtxt(at2017gfo_spectra[t])
 		mask = np.where(obs[:, 1] > 0)[0]
 		print(len(mask), '/%d wav bins used' % obs.shape[0])
-		residuals = np.sum(((obs[mask, 1]-pred[:, mask])/obs[mask, 2])**2, axis=1)
+		residuals = np.sum(((obs[mask, 1]-pred[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
 		#residuals = np.sum(((np.log10(obs[mask, 1])-np.log10(pred[:, mask]))/np.log10(obs[mask, 2]))**2, axis=1)
 		#print('residuals: ', residuals)
-		print('mean of obs: ', np.mean(obs[mask, 1]))
-		print('mean of pred: ', np.mean(pred[:, mask]))
-		print('mean of err: ', np.mean(obs[mask, 2]))
+		#print('mean of obs: ', np.mean(obs[mask, 1]))
+		#print('mean of pred: ', np.mean(pred[:, mask]))
+		#print('mean of err: ', np.mean(obs[mask, 2]))
 		np.savetxt('/lustre/scratch4/turquoise/mristic/at2017gfo_likelihoods_t%g.dat' % times_orig[t], np.c_[sim_params, residuals], fmt="%g", header="md vd mw vw residuals") 
 
-		residuals -= np.min(residuals)
-		residuals = np.exp(-1*residuals)
-		idx_max_L = np.argmax(residuals)
+		#residuals -= np.min(residuals)
+		#residuals = np.exp(-1*residuals)
+		idx_max_L = np.argmin(residuals)
 		pred = pred[idx_max_L]
 
-		print('Best parameters for time %g = ' % times_orig[t], sim_params[idx_max_L])
+		print('Best parameters for time %g = ' % times_orig[t], sim_params[idx_max_L], ' with Chi^2 = %g' % residuals[idx_max_L])
 
 		try:
 			recov = np.c_[sim_params[idx_max_L].reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
