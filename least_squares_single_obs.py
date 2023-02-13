@@ -47,15 +47,15 @@ for t in range(len(times_orig)):
 	# below, I try weighting based on SuperNu wavelength bin spacing, giving more weight to shorter wavelengths
 
 	# take the difference between adjacent wavelength bins
-	prefer_early_times = np.diff(wavs_supernu) # size 1023 array
+	#prefer_early_times = np.diff(wavs_supernu) # size 1023 array
 	# this creates an N-1 length array, insert the first entry at the start for completeness without too much loss of generality
-	prefer_early_times = np.insert(prefer_early_times, 0, prefer_early_times[0]) # size 1024 array
-	prefer_early_times /= np.min(prefer_early_times) # scaling factor for reasonable residual values, in case we ever want likelihoods, also removes units
+	#prefer_early_times = np.insert(prefer_early_times, 0, prefer_early_times[0]) # size 1024 array
+	#prefer_early_times /= np.min(prefer_early_times) # scaling factor for reasonable residual values, in case we ever want likelihoods, also removes units
 	# take the inverse, as we want the bins with smaller spacing to be given a higher weight (earlier bins have fewer data points)
-	prefer_early_times = 1/prefer_early_times
+	#prefer_early_times = 1/prefer_early_times
 	#prefer_early_times /= np.min(prefer_early_times) # scaling factor for reasonable residual values, in case we ever want likelihoods, also removes units
 
-	residuals = np.sum(((obs[mask, 1]-pred[:, mask])/obs[mask, 2]*prefer_early_times[mask])**2, axis=1)
+	residuals = np.sum(((obs[mask, 1]-pred[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
 	#print('residuals: ', residuals)
 	#print('mean of obs: ', np.mean(np.log10(obs[mask, 1])))
 	#print('mean of pred: ', np.mean(np.log10(pred[:, mask])))
