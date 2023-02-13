@@ -187,9 +187,15 @@ class intp(object):
 		test_indices = np.random.choice(np.arange(self.params.shape[0]), size=size, replace=False)
 		test_indices = np.sort(test_indices)
 
+		if self.verbose: print('Test set parameters should be: ', self.params[test_indices])
+
 		test_times = np.random.choice(self.times, size, replace=True)
 
+		counter = 0 # remove me when done making plots for paper
+
 		for idx in range(len(test_indices)):
+
+			if test_indices[idx] < 37: counter += 1
 
 			param = self.params[test_indices[idx]]
 			param = np.concatenate((param, test_times[idx].reshape(1)))
@@ -206,7 +212,20 @@ class intp(object):
 
 			test_indices -= 1
 
-		if self.verbose: print('Test set parameters should be: ', self.params_test)
+		# remove me when done making plots for paper ###
+		param = self.params[37-counter] # same as param2, but need 2 different input times
+		param2 = self.params[37-counter]
+		param = np.concatenate((param, self.times[51].reshape(1))) # 10-day time input
+		param2 = np.concatenate((param2, self.times[57].reshape(1))) # 17-day time input
+		spec = self.spectra[37-counter, 51]
+		spec2 = self.spectra[37-counter, 57]
+		self.params = np.delete(self.params, 37-counter, axis=0) # remove the parameter from the list, only once since same ejecta params
+		self.spectra = np.delete(self.spectra, 37-counter, axis=0) # remove matching spectrum as well
+		self.params_test = np.concatenate((self.params_test, param[None, :]), axis=0) # add first set of input params
+		self.params_test = np.concatenate((self.params_test, param2[None, :]), axis=0) # add second set of input params
+		self.spectra_test = np.concatenate((self.spectra_test, spec[None, :]), axis=0) # add spectrum matching to first inputs
+		self.spectra_test = np.concatenate((self.spectra_test, spec2[None, :]), axis=0) # add spectrum matching to second inputs
+		####
 
 		if self.verbose: 
 			print('Test set parameters are: ', self.params_test)
@@ -375,14 +394,15 @@ class intp(object):
 				plt.title(r"TP   wind2   $M_d$={0:.4f}   $v_d$={1:.3f}   $M_w$={2:.4f}   $v_w$={3:.3f}   $\theta$={4:.3f}".format(*self.params_test[idx][0:5]), y=1.06)
 			if self.theta is None and self.t_max is None:
 				plt.title(r"TP  wind2  $M_d$={0:.4f}  $v_d$={1:.3f}  $M_w$={2:.4f}  $v_w$={3:.3f}  $t$={4:.3f}  $\theta$={5:.3f}".format(*self.params_test[idx][0:6]), y=1.06)
-			plt.plot(self.wavs, self.spectra_test[idx], label='true', color='k')
-			plt.plot(self.wavs, self.prediction[idx], label='intp', color='red')
+			plt.plot(self.wavs, self.spectra_test[idx], label=r'$F_{\lambda, \rm sim}$', color='k')
+			plt.plot(self.wavs, self.prediction[idx], label=r'$F_{\lambda, \rm intp}$', color='red')
 			plt.xscale('log')
 			plt.yscale('log')
 			plt.gca().set_xticks([0.5, 1, 2, 3, 5, 10])
 			plt.gca().get_xaxis().set_major_formatter(ticker.FormatStrFormatter('%g'))
 			plt.gca().set_ylim(bottom=1e-12)
 			#plt.xlabel(r'$\lambda \ (\mu m)$')
+			plt.xlim([0.4, 10])
 			plt.ylabel(r'$F_{\lambda} (erg \ s^{-1} \ cm^{-2} \ \mu m^{-1})$')
 			plt.xlabel(r'$\lambda$ ($\mu$m)')
 			plt.legend()
