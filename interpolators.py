@@ -25,11 +25,14 @@ class GP(object):
 
 class RF(object):
 
-	def __init__(self, n_estimators=1000, max_depth=None):
+	def __init__(self, n_estimators=250, max_depth=1000, max_features=None, max_leaf_nodes=500):
 		
+        # Random Search Cross Validation found these to be ideal parameters when using *ALL* time/angle/wavelength data
+        # RandomForestRegressor(max_depth=1000, max_features=None, max_leaf_nodes=500,
+        #              n_estimators=250)
 		from sklearn.ensemble import RandomForestRegressor
 		
-		self.rfr = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth)
+		self.rfr = RandomForestRegressor(n_estimators=n_estimators, max_depth=max_depth, max_features=max_features, max_leaf_nodes=max_leaf_nodes)
 
 	def train(self, inputs, targets):
 
