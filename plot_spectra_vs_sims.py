@@ -17,17 +17,19 @@ times_orig = np.array(times_orig).reshape(-1, 1)
 # -- loading SuperNu simulations with best-fit parameters
 
 data_2c = np.loadtxt('Run_TP_dyn_all_lanth_wind2_all_md0.030643_vd0.175067_mw0.015214_vw0.163226_spec_2023-01-09.dat')
-data_3c = np.loadtxt('Run_TPS_dyn_all_lanth_wind2_all_wind1_all_md0.030643_vd0.175067_mw0.015214_vw0.163226_mth0.003_vth0.005_spec_2023-01-09.dat')
 data_3c_metzger = np.loadtxt('Run_TP_dyn_all_lanth_wind2_all_md0.030643_vd0.175067_mw0.015214_vw0.163226_spec_2023-01-09.dat')
-data_3c_Ye0p5 = np.loadtxt('Run_TPS_dyn_all_lanth_wind2_all_v0.05_Ye0.50_md0.030643_vd0.175067_mw0.015214_vw0.163226_mth0.003_vth0.005_spec_2023-01-11.dat')
-data_3c_Ye0p5_peanut = np.loadtxt('Run_TPP_dyn_all_lanth_wind2_all_v0.05_Ye0.50_md0.030643_vd0.175067_mw0.015214_vw0.163226_mth0.003_vth0.005_spec_2023-01-11.dat')
-data_3c_Ye0p5_peanut_fast = np.loadtxt('Run_TPP_dyn_all_lanth_wind2_all_v0.05_Ye0.50_md0.030643_vd0.175067_mw0.015214_vw0.163226_mth0.003_vth0.025_spec_2023-01-11.dat')
+data_3c_nickel_wind = np.loadtxt('Run_TP_dyn_plus_w2_wind2_all_md0.030643_vd0.175067_mw0.015214_vw0.163226_spec_2023-02-20.dat')
+#data_3c = np.loadtxt('Run_TPS_dyn_all_lanth_wind2_all_wind1_all_md0.030643_vd0.175067_mw0.015214_vw0.163226_mth0.003_vth0.005_spec_2023-01-09.dat')
+#data_3c_Ye0p5 = np.loadtxt('Run_TPS_dyn_all_lanth_wind2_all_v0.05_Ye0.50_md0.030643_vd0.175067_mw0.015214_vw0.163226_mth0.003_vth0.005_spec_2023-01-11.dat')
+#data_3c_Ye0p5_peanut = np.loadtxt('Run_TPP_dyn_all_lanth_wind2_all_v0.05_Ye0.50_md0.030643_vd0.175067_mw0.015214_vw0.163226_mth0.003_vth0.005_spec_2023-01-11.dat')
+#data_3c_Ye0p5_peanut_fast = np.loadtxt('Run_TPP_dyn_all_lanth_wind2_all_v0.05_Ye0.50_md0.030643_vd0.175067_mw0.015214_vw0.163226_mth0.003_vth0.025_spec_2023-01-11.dat')
 data_2c = np.array(np.split(data_2c, data_2c.shape[0]/1024))
-data_3c = np.array(np.split(data_3c, data_3c.shape[0]/1024))
 data_3c_metzger = np.array(np.split(data_3c_metzger, data_3c_metzger.shape[0]/1024))
-data_3c_Ye0p5 = np.array(np.split(data_3c_Ye0p5, data_3c_Ye0p5.shape[0]/1024))
-data_3c_Ye0p5_peanut = np.array(np.split(data_3c_Ye0p5_peanut, data_3c_Ye0p5_peanut.shape[0]/1024))
-data_3c_Ye0p5_peanut_fast = np.array(np.split(data_3c_Ye0p5_peanut_fast, data_3c_Ye0p5_peanut_fast.shape[0]/1024))
+data_3c_nickel_wind = np.array(np.split(data_3c_nickel_wind, data_3c_nickel_wind.shape[0]/1024))
+#data_3c = np.array(np.split(data_3c, data_3c.shape[0]/1024))
+#data_3c_Ye0p5 = np.array(np.split(data_3c_Ye0p5, data_3c_Ye0p5.shape[0]/1024))
+#data_3c_Ye0p5_peanut = np.array(np.split(data_3c_Ye0p5_peanut, data_3c_Ye0p5_peanut.shape[0]/1024))
+#data_3c_Ye0p5_peanut_fast = np.array(np.split(data_3c_Ye0p5_peanut_fast, data_3c_Ye0p5_peanut_fast.shape[0]/1024))
 
 # -- Metzger model parameters for post-facto direct flux addition (no re-processing, no radiative transfer)
 
@@ -49,20 +51,22 @@ for t in range(len(times_orig)):
 	obs = np.loadtxt(at2017gfo_spectra[t])
 	t_idx = np.argmin(np.abs(times_orig[t]-sim_times))
 	sim_2c = data_2c[t_idx, :, 2]
-	sim_3c = data_3c[t_idx, :, 2]
 	sim_3c_metzger = data_3c_metzger[t_idx, :, 2]
-	sim_3c_Ye0p5 = data_3c_Ye0p5[t_idx, :, 2]
-	sim_3c_Ye0p5_peanut = data_3c_Ye0p5_peanut[t_idx, :, 2]
-	sim_3c_Ye0p5_peanut_fast = data_3c_Ye0p5_peanut_fast[t_idx, :, 2]
+	sim_3c_nickel_wind = data_3c_nickel_wind[t_idx, :, 2]
+	#sim_3c = data_3c[t_idx, :, 2]
+	#sim_3c_Ye0p5 = data_3c_Ye0p5[t_idx, :, 2]
+	#sim_3c_Ye0p5_peanut = data_3c_Ye0p5_peanut[t_idx, :, 2]
+	#sim_3c_Ye0p5_peanut_fast = data_3c_Ye0p5_peanut_fast[t_idx, :, 2]
 	sim_2c *= 54/(4e6)**2
-	sim_3c *= 54/(4e6)**2
+	sim_3c_nickel_wind *= 54/(4e6)**2
 	sim_3c_metzger *= 54/(4e6)**2
 	tdays, Ltot, flux, _ = m17.calc_lc(t_ini, times_orig[t]+dt, dt, m, v, beta, k)
 	flux = flux[:, -2]*1e-8
 	sim_3c_metzger += flux
-	sim_3c_Ye0p5 *= 54/(4e6)**2
-	sim_3c_Ye0p5_peanut *= 54/(4e6)**2
-	sim_3c_Ye0p5_peanut_fast *= 54/(4e6)**2
+	#sim_3c *= 54/(4e6)**2
+	#sim_3c_Ye0p5 *= 54/(4e6)**2
+	#sim_3c_Ye0p5_peanut *= 54/(4e6)**2
+	#sim_3c_Ye0p5_peanut_fast *= 54/(4e6)**2
 	mask = np.where(obs[:, 1] > 0)[0] # this will be the first N arrays
 	print(len(mask), '/%d wav bins used' % obs.shape[0])
 
@@ -101,11 +105,12 @@ for t in range(len(times_orig)):
 	for i in range(len(cutoffs)-1):
 		plt.plot(obs[cutoffs[i]:cutoffs[i+1], 0], obs[cutoffs[i]:cutoffs[i+1], 1], c='k')
 	plt.plot(wavs_supernu, sim_2c, '--', c='red', label='2c')
-	plt.plot(wavs_supernu, sim_3c_metzger, '--', c='brown', label='3cMetzger')
-	plt.plot(wavs_supernu, sim_3c, '--', c='blue', label='3cw1Sslow')
-	plt.plot(wavs_supernu, sim_3c_Ye0p5, '--', c='orange', label='3cNiSslow')
-	plt.plot(wavs_supernu, sim_3c_Ye0p5_peanut, '--', c='green', label='3cNiPslow')
-	plt.plot(wavs_supernu, sim_3c_Ye0p5_peanut_fast, '--', c='purple', label='3cNiPfast')
+	plt.plot(wavs_supernu, sim_3c_metzger, '--', c='blue', label='3cMetzger')
+	plt.plot(wavs_supernu, sim_3c_nickel_wind, '--', c='purple', label='3cNiWind')
+	#plt.plot(wavs_supernu, sim_3c, '--', c='blue', label='3cw1Sslow')
+	#plt.plot(wavs_supernu, sim_3c_Ye0p5, '--', c='orange', label='3cNiSslow')
+	#plt.plot(wavs_supernu, sim_3c_Ye0p5_peanut, '--', c='green', label='3cNiPslow')
+	#plt.plot(wavs_supernu, sim_3c_Ye0p5_peanut_fast, '--', c='purple', label='3cNiPfast')
 	plt.title('%g days' % times_orig[t], loc="left")
 	plt.plot([], [], c='k', label='AT2017gfo')
 	plt.xscale('log')
