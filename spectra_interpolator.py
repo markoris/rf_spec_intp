@@ -109,7 +109,7 @@ class intp(object):
 	
 		if self.t_max is not None:
 			t_idx = np.argmin(np.abs(self.times-self.t_max))
-			self.times = self.times[:t_idx+1]
+			#self.times = self.times[:t_idx+1]
 			if self.verbose: print("Time index of %d corresponds to %f days" % (t_idx, self.times[t_idx]))
 
 		if self.theta is not None:
@@ -134,14 +134,14 @@ class intp(object):
 			self.params = self.params[:20, ...]
 			self.spectra = self.spectra[:20, ...]
 
-		if self.t_max is None and theta is None: # does not specify time or angle index
+		if self.t_max is None and self.theta is None: # does not specify time or angle index
 			self.spectra = self.spectra[:, :, self.wav_idxs, :]
 			if downsample_theta: 
 				self.spectra = self.spectra[:, :, :, np.arange(0, self.angles.shape[0]-1, 2)]
 				self.angles = np.degrees([np.arccos((1 - (i-1)*2/27.)) for i in np.arange(1, 28, 1)])
 			return
 
-		if self.t_max is None or theta is None: # one of angle or time unspecified
+		if self.t_max is None or self.theta is None: # one of angle or time unspecified
 
 			if self.t_max is None:
 				self.spectra = self.spectra[:, :, self.wav_idxs, angle_idx] # only angle specified, all times
@@ -190,6 +190,7 @@ class intp(object):
 		if self.verbose: print('Test set parameters should be: ', self.params[test_indices])
 
 		test_times = np.random.choice(self.times, size, replace=True)
+		test_angles = np.random.choice(self.angles, size, replace=True)
 
 		counter = 0 # remove me when done making plots for paper
 
@@ -199,7 +200,8 @@ class intp(object):
 
 			param = self.params[test_indices[idx]]
 			param = np.concatenate((param, test_times[idx].reshape(1)))
-			spec = self.spectra[test_indices[idx], np.argmin(np.abs(self.times-test_times[idx]))]
+			if self.t_max is None: spec = self.spectra[test_indices[idx], np.argmin(np.abs(self.times-test_times[idx]))]
+			if self.theta is None: spec = self.spectra[test_indices[idx], :, np.argmin(np.abs(self.angles-test_angles[idx]))]
 			self.params = np.delete(self.params, test_indices[idx], axis=0)
 			self.spectra = np.delete(self.spectra, test_indices[idx], axis=0)
 
@@ -214,23 +216,27 @@ class intp(object):
 
 		# remove me when done making plots for paper ###
 		param = self.params[37-counter] # same as param2, but need 2 different input times
-		param2 = self.params[37-counter]
-		param = np.concatenate((param, self.times[51].reshape(1))) # 10-day time input
-		param2 = np.concatenate((param2, self.times[57].reshape(1))) # 17-day time input
-		spec = self.spectra[37-counter, 51]
-		spec2 = self.spectra[37-counter, 57]
+		#param2 = self.params[37-counter]
+		if self.t_max is None: param = np.concatenate((param, self.times[51].reshape(1))) # 10-day time input
+		if self.theta is None: param = np.concatenate((param, self.angles[0].reshape(1))) # 10-day time input
+		#param2 = np.concatenate((param2, self.times[57].reshape(1))) # 17-day time input
+		if self.t_max is None: spec = self.spectra[37-counter, 51]
+		if self.theta is None: spec = self.spectra[37-counter, :, 0]
+		#spec2 = self.spectra[37-counter, 57]
 		self.params = np.delete(self.params, 37-counter, axis=0) # remove the parameter from the list, only once since same ejecta params
 		self.spectra = np.delete(self.spectra, 37-counter, axis=0) # remove matching spectrum as well
 		self.params_test = np.concatenate((self.params_test, param[None, :]), axis=0) # add first set of input params
-		self.params_test = np.concatenate((self.params_test, param2[None, :]), axis=0) # add second set of input params
+		#self.params_test = np.concatenate((self.params_test, param2[None, :]), axis=0) # add second set of input params
 		self.spectra_test = np.concatenate((self.spectra_test, spec[None, :]), axis=0) # add spectrum matching to first inputs
-		self.spectra_test = np.concatenate((self.spectra_test, spec2[None, :]), axis=0) # add spectrum matching to second inputs
+		#self.spectra_test = np.concatenate((self.spectra_test, spec2[None, :]), axis=0) # add spectrum matching to second inputs
 		####
 
 		if self.verbose: 
 			print('Test set parameters are: ', self.params_test)
 			print('Test set shape is: ', self.params_test.shape)
+			print('Test spectra shape is ', self.spectra_test.shape)
 			print('Training set shape is ', self.params.shape)
+			print('Training spectra shape is ', self.spectra.shape)
 
 		return
 			
@@ -301,7 +307,7 @@ class intp(object):
 
 		import joblib
 
-		print("Loading model, this may take some time...")
+		print("Loading model %s, this may take some time..." % name)
 
 		self.intp = joblib.load(name)
 
@@ -374,14 +380,16 @@ class intp(object):
 				wavelengths = 'grizyJHKS'
 				colors = {"g": "blue", "r": "cyan", "i": "lime", "z": "green", "y": "greenyellow", "J": "gold",
 				         "H": "orange", "K": "red", "S": "darkred"}
+				text_locs = {'g': 0.04, 'r': 0.125, 'i': 0.175, 'z': 0.23, 'y': 0.275, 'J': 0.33, 'H': 0.42, 'K': 0.51, 'S': 0.73}
 				for fltr in range(len(filters)):
 					filter_wavs = np.loadtxt(filters[fltr])
 					filter_wavs = filter_wavs[:, 0]*1e-4 # factor of 1e-4 to go from Angstroms to microns
-					text_loc = np.mean(filter_wavs)
-					text_loc = (np.log10(text_loc)-np.log10(self.wavs.min()))/(np.log10(self.wavs.max())-np.log10(self.wavs.min()))
+					#text_loc = np.mean(filter_wavs)
+					#text_loc = (np.log10(text_loc)-np.log10(self.wavs.min()))/(np.log10(self.wavs.max())-np.log10(self.wavs.min()))
 					wav_low, wav_upp = filter_wavs[0], filter_wavs[-1]
 					fltr_band = filters[fltr].split('/')[-1][0]
 					fltr_indx = wavelengths.find(fltr_band)
+					text_loc = text_locs[wavelengths[fltr_indx]]
 					plt.axvspan(wav_low, wav_upp, alpha=0.5, color=colors[wavelengths[fltr_indx]])
 					#plt.text(text_loc_relative[fltr_indx], 1.015, fltr_band, color=colors[wavelengths[fltr_indx]], transform=plt.gca().transAxes, path_effects=[PathEffects.withStroke(linewidth=0.5, foreground="black")])
 					plt.text(text_loc, 1.015, fltr_band, color=colors[wavelengths[fltr_indx]], transform=plt.gca().transAxes, path_effects=[PathEffects.withStroke(linewidth=0.5, foreground="black")])
@@ -403,7 +411,7 @@ class intp(object):
 			plt.gca().set_ylim(bottom=1e-12)
 			#plt.xlabel(r'$\lambda \ (\mu m)$')
 			plt.xlim([0.4, 10])
-			plt.ylabel(r'$F_{\lambda} (erg \ s^{-1} \ cm^{-2} \ \mu m^{-1})$')
+			plt.ylabel(r'$F_{\lambda} (erg \ s^{-1} \ cm^{-2} \ \AA^{-1})$')
 			plt.xlabel(r'$\lambda$ ($\mu$m)')
 			plt.legend()
 			if self.t_max is not None and self.theta is not None:
