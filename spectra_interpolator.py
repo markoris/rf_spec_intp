@@ -1,5 +1,5 @@
 import numpy as np
-import glob
+import glob, sys
 
 class intp(object):
 
@@ -41,7 +41,7 @@ class intp(object):
 
 		if np.any([rf, gp, nn]) == False:
 			print("Pick an interpolator to train!")
-			return
+			sys.exit()
 		
 		intp_library = {'rf': intps.RF(n_estimators=n_estimators, max_depth=max_depth),
 				'gp': intps.GP(),
@@ -55,7 +55,7 @@ class intp(object):
 
 		return
 
-	def load_data(self, path_to_sims_dir, path_to_spectra_h5, short_prms=True, short_wavs=True, t_max=38.055, theta=0, downsample_theta=False):
+	def load_data(self, path_to_sims_dir, path_to_spectra_h5, short_prms=True, trim_dataset=True, t_max=38.055, theta=0):
 
 		import h5py, sys
 			
@@ -67,17 +67,30 @@ class intp(object):
 		self.t_max = t_max
 		self.theta = theta
 
-		### Prepare wavelength information	
+		### Prepare definitions for entire dataset, trim later	
+	
+		t_a = 0.125 # spectral start time
+		#t_b = 49.351 # spectral end time
+		t_b = 20.749 # spectral end time FIXME this is only temporary, need to remake .hdf5 to include time up to 66 iteration
+		# FIXME re-run the .hdf5 creation using longest time available to all spectra. then re-write self.times to fit that number
+		times = np.logspace(np.log10(t_a), np.log10(t_b), 60) # this should cover the full spectral possibilities range
+		#self.times = np.logspace(np.log10(t_a), np.log10(t_b), 70) # this should cover the full spectral possibilities range FIXME
+		angles = np.degrees([np.arccos((1 - (i-1)*2/54.)) for i in np.arange(1, 55, 1)])
 	
 		wavs_full = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024)*1e4 # in microns (from 1e4 scaling factor)
 		
-		if short_wavs:
-			#self.wav_idxs = np.where((wavs_full>0.4) & (wavs_full<10))[0] # above .4 micron and below 10 microns
-			self.wav_idxs = np.where((wavs_full>0.4) & (wavs_full<2.5))[0] # above .4 micron and below 10 microns
-		else: 
+		if trim_dataset:
+			self.time_idxs = np.where((times > 1.4) & (times < 10.4))[0] # first to last AT2017gfo observations (1.4 to 10.4 days)
+			self.wav_idxs = np.where((wavs_full > 0.39) & (wavs_full < 2.4))[0] # bottom of g-band and top of K-band in microns
+			self.angle_idxs = np.arange(0, angles.shape[0]-1, 2) # every other angular bin
+		else:
+			self.time_idxs = np.arange(len(times)) 
 			self.wav_idxs = np.arange(len(wavs_full))
+			self.angle_idxs = np.arange(len(angles))
 		
 		self.wavs = wavs_full[self.wav_idxs]
+		self.times = times[self.time_idxs]
+		self.angles = angles[self.angle_idxs]
 
 		### Prepare ejecta parameters to serve as interpolation inputs
 	
@@ -97,14 +110,6 @@ class intp(object):
 
 		### First choose the cutoff time for spectra
 	
-		t_a = 0.125 # spectral start time
-		#t_b = 49.351 # spectral end time
-		t_b = 20.749 # spectral end time FIXME this is only temporary, need to remake .hdf5 to include time up to 66 iteration
-		# FIXME re-run the .hdf5 creation using longest time available to all spectra. then re-write self.times to fit that number
-		self.times = np.logspace(np.log10(t_a), np.log10(t_b), 60) # this should cover the full spectral possibilities range
-		#self.times = np.logspace(np.log10(t_a), np.log10(t_b), 70) # this should cover the full spectral possibilities range FIXME
-		self.angles = np.degrees([np.arccos((1 - (i-1)*2/54.)) for i in np.arange(1, 55, 1)])
-	
 		if self.verbose: print("Spectra times: ", self.times)
 	
 		if self.t_max is not None:
@@ -120,7 +125,13 @@ class intp(object):
 	
 		h5_load = h5py.File(path_to_spectra_h5, 'r')
 		data = h5_load['spectra'][:]
-		spec_all = data.reshape(files.shape[0], self.times.shape[0], wavs_full.shape[0], self.angles.shape[0])
+		spec_all = data.reshape(files.shape[0], times.shape[0], wavs_full.shape[0], angles.shape[0])
+		print(spec_all.shape)
+		# awful coding because I can't figure out broadcasting in 4D
+		spec_all = spec_all[:, self.time_idxs, :, :]
+		spec_all = spec_all[:, :, self.wav_idxs, :]
+		spec_all = spec_all[:, :, :, self.angle_idxs]
+		#spec_all = spec_all[:, self.time_idxs, self.wav_idxs, self.angle_idxs]
 		
 		if self.verbose: print('Data loaded and reshaped')
 
@@ -136,25 +147,19 @@ class intp(object):
 
 		if self.t_max is None and self.theta is None: # does not specify time or angle index
 			self.spectra = self.spectra[:, :, self.wav_idxs, :]
-			if downsample_theta: 
-				self.spectra = self.spectra[:, :, :, np.arange(0, self.angles.shape[0]-1, 2)]
-				self.angles = np.degrees([np.arccos((1 - (i-1)*2/27.)) for i in np.arange(1, 28, 1)])
 			return
 
 		if self.t_max is None or self.theta is None: # one of angle or time unspecified
 
 			if self.t_max is None:
-				self.spectra = self.spectra[:, :, self.wav_idxs, angle_idx] # only angle specified, all times
+				self.spectra = self.spectra[:, :, :, angle_idx] # only angle specified, all times
 				return
 
 			if self.theta is None:
-				self.spectra = self.spectra[:, t_idx, self.wav_idxs, :] # only time specified, all angles
-				if downsample_theta: 
-					self.spectra = self.spectra[:, :, np.arange(0, self.angles.shape[0]-1, 2)]
-					self.angles = np.degrees([np.arccos((1 - (i-1)*2/27.)) for i in np.arange(1, 28, 1)])
+				self.spectra = self.spectra[:, t_idx, :, :] # only time specified, all angles
 				return
 
-		self.spectra = self.spectra[:, t_idx, self.wav_idxs, angle_idx]	# time and angle specified
+		self.spectra = self.spectra[:, t_idx, :, angle_idx]	# time and angle specified
 		return
 
 	def append_input_parameter(self, values_to_append, axis_to_append):
@@ -217,10 +222,12 @@ class intp(object):
 		# remove me when done making plots for paper ###
 		param = self.params[37-counter] # same as param2, but need 2 different input times
 		#param2 = self.params[37-counter]
-		if self.t_max is None: param = np.concatenate((param, self.times[51].reshape(1))) # 10-day time input
-		if self.theta is None: param = np.concatenate((param, self.angles[0].reshape(1))) # 10-day time input
+		#if self.t_max is None: param = np.concatenate((param, self.times[51].reshape(1))) # 10-day time input
+		t10idx = np.argmin(np.abs(self.times-10.4))
+		if self.t_max is None: param = np.concatenate((param, self.times[t10idx].reshape(1))) # 10-day time input
+		if self.theta is None: param = np.concatenate((param, self.angles[0].reshape(1))) # 0 degree angle input
 		#param2 = np.concatenate((param2, self.times[57].reshape(1))) # 17-day time input
-		if self.t_max is None: spec = self.spectra[37-counter, 51]
+		if self.t_max is None: spec = self.spectra[37-counter, t10idx]
 		if self.theta is None: spec = self.spectra[37-counter, :, 0]
 		#spec2 = self.spectra[37-counter, 57]
 		self.params = np.delete(self.params, 37-counter, axis=0) # remove the parameter from the list, only once since same ejecta params
