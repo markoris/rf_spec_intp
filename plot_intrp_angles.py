@@ -33,6 +33,7 @@ t_b = 20.749 # spectral end time FIXME this is only temporary, need to remake .h
 sim_times = np.logspace(np.log10(t_a), np.log10(t_b), 60) # this should cover the full spectral possibilities range
 
 wavs_supernu = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024)*1e4 # from cm to microns (via 1e4 scaling factor)
+wavs_supernu = wavs_supernu[np.where((wavs_supernu > 0.39) & (wavs_supernu < 2.4))[0]] # bottom of g-band and top of K-band in microns
 
 for t in range(len(times_orig)):
 	print('t = ', times_orig[t])
@@ -66,7 +67,7 @@ for t in range(len(times_orig)):
 	wavelengths = 'grizyJHKS'
 	colors = {"g": "blue", "r": "cyan", "i": "lime", "z": "green", "y": "greenyellow", "J": "gold",
 		 "H": "orange", "K": "red", "S": "darkred"}
-	text_locs = {"g": 0.2, "r": 0.35, "i": 0.44, "z": 0.51, "y": 0.57, "J": 0.65, "H": 0.78, "K": 0.91}
+	text_locs = {"g": 0.09, "r": 0.25, "i": 0.35, "z": 0.44, "y": 0.51, "J": 0.61, "H": 0.75, "K": 0.92}
 	for fltr in range(len(filters)):
 		filter_wavs = np.loadtxt(filters[fltr])
 		filter_wavs = filter_wavs[:, 0]*1e-4 # factor of 1e-4 to go from Angstroms to microns
@@ -86,11 +87,11 @@ for t in range(len(times_orig)):
 	plt.plot(wavs_supernu, intpdeg60 , '--', c=color_rgb(60), label=r'$\theta = 60^o$')
 	plt.plot(wavs_supernu, intpdeg75 , '--', c=color_rgb(75), label=r'$\theta = 75^o$')
 	plt.plot(wavs_supernu, intpdeg90 , '--', c=color_rgb(90), label=r'$\theta = 90^o$')
-	plt.title('%g days' % times_orig[t], loc="left")
+	plt.title('%g d' % times_orig[t], loc="left", x=0.02, y=1.0, pad=-40)
 	#plt.plot([], [], c='k', label='AT2017gfo')
 	plt.xscale('log')
 	plt.yscale('log')
-	plt.xlim([0.3, 2.4])
+	plt.xlim([0.39, 2.4])
 	#plt.ylim([1e-19, 5e-17])
 	plt.ylim([1e-21, np.max(intpdeg00)*5])
 	#plt.ylim([1e-19, np.max(intpdeg00)*5])

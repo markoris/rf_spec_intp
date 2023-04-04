@@ -27,6 +27,7 @@ intptime10 = np.loadtxt('intptime10p4days.dat') # 1 x 1024 array
 
 # -- loading SuperNu simulations with best-fit parameters
 wavs_supernu = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024)*1e4 # from cm to microns (via 1e4 scaling factor)
+wavs_supernu = wavs_supernu[np.where((wavs_supernu > 0.39) & (wavs_supernu < 2.4))[0]] # bottom of g-band and top of K-band in microns
 
 plt.rc('font', size=35)
 plt.rc('lines', lw=4)
@@ -36,7 +37,7 @@ filters = np.array(glob.glob('filters/*'))
 wavelengths = 'grizyJHKS'
 colors = {"g": "blue", "r": "cyan", "i": "lime", "z": "green", "y": "greenyellow", "J": "gold",
 	 "H": "orange", "K": "red", "S": "darkred"}
-text_locs = {"g": 0.2, "r": 0.35, "i": 0.44, "z": 0.51, "y": 0.57, "J": 0.65, "H": 0.78, "K": 0.91}
+text_locs = {"g": 0.09, "r": 0.25, "i": 0.35, "z": 0.44, "y": 0.51, "J": 0.61, "H": 0.75, "K": 0.92}
 for fltr in range(len(filters)):
 	filter_wavs = np.loadtxt(filters[fltr])
 	filter_wavs = filter_wavs[:, 0]*1e-4 # factor of 1e-4 to go from Angstroms to microns
@@ -52,10 +53,10 @@ plt.plot(wavs_supernu, intptime01 , '--', c=color_rgb(1.43), label=r'$t = 1.43 \
 plt.plot(wavs_supernu, intptime04 , '--', c=color_rgb(4.4), label=r'$t = 4.4 \rm d$')
 plt.plot(wavs_supernu, intptime07 , '--', c=color_rgb(7.4), label=r'$t = 7.4 \rm d$')
 plt.plot(wavs_supernu, intptime10 , '--', c=color_rgb(10.4), label=r'$t = 10.4 \rm d$')
-plt.title('%g deg' % float(0), loc="left")
+plt.title('%g deg' % float(0), loc="left", x=0.02, y=1.0, pad=-40)
 plt.xscale('log')
 plt.yscale('log')
-plt.xlim([0.3, 2.4])
+plt.xlim([0.39, 2.4])
 #plt.ylim([1e-19, 5e-17])
 plt.ylim([1e-21, np.max(intptime01)*5])
 #plt.ylim([1e-19, np.max(intpdeg00)*5])
