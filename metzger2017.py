@@ -6,7 +6,7 @@
 import os, sys
 import numpy as np
 
-def calc_lc(tini,tmax,dt,mej,vej,beta,kappa_r):
+def calc_lc(tini,tmax,dt,mej,vej,beta,kappa_r,wav_trim=False):
 
     # ** define constants **
     c = 3.0e10
@@ -33,6 +33,7 @@ def calc_lc(tini,tmax,dt,mej,vej,beta,kappa_r):
     # u (0) g (1) r (2) i (3) z (4) y (5) J (6) H (7) K (8)
     #lambdaobs = np.array([354.3, 477.56, 612.95, 748.46, 865.78, 960.31, 1235.0, 1662.0, 2159.0])
     lambdaobs = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024)*1e7 # cm to nm
+    if wav_trim: lambdaobs = lambdaobs[np.where((lambdaobs > 0.39*1e3) & (lambdaobs < 2.4*1e3))[0]]
 
     nuobs = c/(1.0e-7*lambdaobs)
     nuobs = nuobs/(1.0 + z)
