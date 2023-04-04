@@ -27,6 +27,10 @@ hyperparameters: prefix
 	@echo "python -u rf_hyperparameters.py" >> runjob.sh
 	@sbatch runjob.sh
 
+2c_vs_metz_vs_3c: prefix
+	@echo "python -u plot_supernu_3c_vs_metzger.py" >> runjob.sh
+	@sbatch runjob.sh
+
 parameter_uncertainty: prefix
 	@echo "python -u parameter_uncertainty.py" >> runjob.sh
 	@sbatch runjob.sh
