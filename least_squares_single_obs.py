@@ -6,7 +6,6 @@ from natsort import natsorted
 import matplotlib.pyplot as plt
 from matplotlib import ticker
 import matplotlib.patheffects as PathEffects
-import forestci as fci
 import corner
 
 # -- Metzger model parameters for post-facto direct flux addition (no re-processing, no radiative transfer)
@@ -42,26 +41,29 @@ def generate_samples(n_samples, times_orig):
     return draws_orig, inputs 
 
 def load_interpolator(path_to_sims, path_to_h5, path_to_model):
-    intp = si.intp()
-    intp.load_data(path_to_sims, path_to_h5, t_max=None, theta=0, short_wavs=False)
+    intp = si.intp(rf=True)
+    intp.load_data(path_to_sims, path_to_h5, t_max=None, theta=0, trim_dataset=True)
     intp.append_input_parameter(intp.times, 1)
     intp.preprocess()
     intp.load(path_to_model, fixed_angle=True)
     return intp 
 
-def least_squares(t, times_orig, spectra, prediction, metzger=False, save_L=True):
-#def least_squares(t, times_orig, spectra, prediction, err_prediction, metzger=False, save_L=True):
+def least_squares(t, times_orig, spectra, prediction, trim_wavs=False, metz_model=False, save_L=True):
+#def least_squares(t, times_orig, spectra, prediction, err_prediction, trim_wavs=False, metz_model=False, save_L=True):
     # take every 10th index starting with t, such that 0 = 1.43 days, 1 = 2.42 days, ..., 9 = 10.4 days
     pred = prediction[t::10]
     #pred_err = err_prediction[t::10]
-    if metzger:
-        tdays, Ltot, flux, _ = m17.calc_lc(t_ini, times_orig[t]+dt, dt, m, v, beta, k)
+    if metz_model:
+        tdays, Ltot, flux, _ = m17.calc_lc(t_ini, times_orig[t]+dt, dt, m, v, beta, k, wav_trim=trim_wavs)
         flux = flux[:, -2]*1e-8 # scales metzger model to our units per Angstrom instead of per cm
         pred += flux
     obs = np.loadtxt(spectra[t])
+    if trim_wavs:
+        wav_trim = np.where((obs[:, 0] > 0.39*1e4) & (obs[:, 0] < 2.4*1e4))[0]
+        obs = obs[wav_trim, :]
     mask = np.where(obs[:, 1] > 0)[0]
     print(len(mask), '/%d wav bins used' % obs.shape[0])
-    residuals = np.sum((0.5*(obs[mask, 1]-pred[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
+    residuals = 0.5*np.sum(((obs[mask, 1]-pred[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
     #residuals = np.sum((0.5*(obs[mask, 1]-pred[:, mask])/np.sqrt(obs[mask, 2]**2+pred_err**2))**2, axis=1)*1/len(mask)
     if save_L:
         np.savetxt('/lustre/scratch4/turquoise/mristic/at2017gfo_likelihoods_t%g.dat' % times_orig[t], residuals, fmt="%g", header="Likelihood for AT2017gfo spectrum at %g days" % times_orig[t])
@@ -72,6 +74,7 @@ def least_squares(t, times_orig, spectra, prediction, metzger=False, save_L=True
 def get_best_match(samples, prediction, residuals):
 #def get_best_match(samples, prediction, err_prediction, residuals):
     idx_max_L = np.argmin(residuals)
+    print('Lowest chi^2 residual value: ', residuals[idx_max_L])
     best_params = samples[idx_max_L]
     best_spec = prediction[idx_max_L]
     #best_spec_err = err_prediction[idx_max_L]
@@ -99,33 +102,40 @@ def parameter_uncertainty(samples, residuals, mask, t, times_orig):
             p += L[i]/S
             if p > p_y: return i
     
+    ## identify p_k(x) = 0.05 location
+    #p_k0p05 = p_k(0.05, L, S)
     # identify p_k(x) = 0.05 location
-    p_k0p05 = p_k(0.05, L, S)
-    # identify p_k(x) = 0.95 location
-    p_k0p95 = p_k(0.95, L, S)
+    p_k0p16 = p_k(0.16, L, S)
+    ## identify p_k(x) = 0.95 location
+    #p_k0p95 = p_k(0.95, L, S)
+    # identify p_k(x) = 0.84 location
+    p_k0p84 = p_k(0.84, L, S)
     # find the ejecta parameters which fall within this range
-    CI_90 = samples[p_k0p05:p_k0p95, :4]
+    CI_68 = samples[p_k0p16:p_k0p84, :4]
     # find lower limits
-    x_mins = np.min(CI_90, axis=0)
+    x_mins = np.min(CI_68, axis=0)
     # find upper limits
-    x_maxs = np.max(CI_90, axis=0)
+    x_maxs = np.max(CI_68, axis=0)
 
     print('lower limits for md, vd, mw, vw: ', x_mins)
     print('upper limits for md, vd, md, vw: ', x_maxs)
 
-    CI_90[:, 0] = np.log10(CI_90[:, 0])
-    CI_90[:, 2] = np.log10(CI_90[:, 2])
+    CI_68[:, 0] = np.log10(CI_68[:, 0])
+    CI_68[:, 2] = np.log10(CI_68[:, 2])
+
+    print(CI_68.shape)
  
     # plot posterior of 90% CI
     plt.rc('font', size=12)
     figure = corner.corner(
-    CI_90,
+    CI_68,
     labels=[
         r"$M_d$",
         r"$V_d$",
         r"$M_w$",
         r"$V_w$",
     ],
+    quantiles=[0, 1],
     show_titles=True,
     title_kwargs={"fontsize": 12},
 )
@@ -151,7 +161,7 @@ def make_plots(obs, best_spec, wavs_supernu, times_orig):
     wavelengths = 'grizyJHKS'
     colors = {"g": "blue", "r": "cyan", "i": "lime", "z": "green", "y": "greenyellow", "J": "gold",
          "H": "orange", "K": "red", "S": "darkred"}
-    text_locs = {"g": 0.2, "r": 0.35, "i": 0.44, "z": 0.51, "y": 0.57, "J": 0.65, "H": 0.78, "K": 0.91}
+    text_locs = {"g": 0.09, "r": 0.25, "i": 0.35, "z": 0.44, "y": 0.51, "J": 0.61, "H": 0.75, "K": 0.92}
     for fltr in range(len(filters)):
         filter_wavs = np.loadtxt(filters[fltr])
         filter_wavs = filter_wavs[:, 0]*1e-4 # factor of 1e-4 to go from Angstroms to microns
@@ -167,11 +177,11 @@ def make_plots(obs, best_spec, wavs_supernu, times_orig):
         plt.plot(obs[cutoffs[i]:cutoffs[i+1], 0], obs[cutoffs[i]:cutoffs[i+1], 1], c='k')
     plt.plot(wavs_supernu, best_spec, c='r', label=r'$F_{\lambda, \rm intp}$')
     #plt.fill_between(wavs_supernu, best_spec-best_spec_err, best_spec+best_spec_err, alpha=0.3, c='r')
-    plt.title('%g days' % times_orig[t], loc="left")
+    plt.title('%g d' % times_orig[t], loc="left", x=0.02, y=1.0, pad=-40)
     plt.plot([], [], c='k', label=r'$F_{\lambda, \rm AT2017gfo}$')
     plt.xscale('log')
     plt.yscale('log')
-    plt.xlim([0.3, 2.4])
+    plt.xlim([0.39, 2.4])
     #plt.ylim([1e-19, 5e-17])
     plt.ylim([1e-19, np.max(obs[:, 1])*5])
     plt.gca().set_xticks(np.array([0.5, 1, 2]))
@@ -184,13 +194,18 @@ def make_plots(obs, best_spec, wavs_supernu, times_orig):
     plt.close()
     return
     
+trim_wavs = True
+metz_model = False
+use_rf_err = False
 wavs_supernu = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024)*1e4 # from cm to microns (via 1e4 scaling factor)
-n_samples = 10000
+if trim_wavs: wavs_supernu = wavs_supernu[np.where((wavs_supernu > 0.39) & (wavs_supernu < 2.4))[0]]
+#n_samples = 10000
+n_samples = 100000
 at2017gfo_spectra, times_orig = load_obs_data('binned_at2017gfo_spectra/*.dat')
 samples, inputs = generate_samples(n_samples, times_orig)
 intp = load_interpolator('/lustre/scratch4/turquoise/mristic/knsc1_active_learning/*spec*', \
                          '/lustre/scratch4/turquoise/mristic/h5_data/TP_wind2_spectra.h5', \
-                         '/lustre/scratch4/turquoise/mristic/rf_spec_intp_optim_theta00deg.joblib')
+                         '/lustre/scratch4/turquoise/mristic/rf_spec_intp_optim_trimdata_theta00deg.joblib')
 out = intp.evaluate(inputs, ret_out=True) # shape [n_draws*len(times), 1024]
 out /= (4e6)**2 # scaling 40 Mpc source distance with source assumed emitting from 10 pc
 
@@ -201,8 +216,8 @@ out /= (4e6)**2 # scaling 40 Mpc source distance with source assumed emitting fr
 
 for t in range(len(times_orig)):
     print('t = ', times_orig[t])
-    obs, pred, residuals, mask = least_squares(t, times_orig, at2017gfo_spectra, out)
-    #obs, pred, pred_err, residuals, mask = least_squares(t, times_orig, at2017gfo_spectra, out, out_err)
+    obs, pred, residuals, mask = least_squares(t, times_orig, at2017gfo_spectra, out, trim_wavs=trim_wavs, metz_model=metz_model)
+    #obs, pred, pred_err, residuals, mask = least_squares(t, times_orig, at2017gfo_spectra, out, out_err, trim_wavs=trim_wavs, metz_model=metz_model)
   
     best_params, best_spec = get_best_match(samples, pred, residuals)
     #best_params, best_spec, best_spec_err = get_best_match(samples, pred, pred_err, residuals)
