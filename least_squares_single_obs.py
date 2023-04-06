@@ -108,9 +108,11 @@ def rift_parameter_uncertainty(prediction, spectra, t, times_orig, trim_wavs=Fal
         #val =100 -0.5*(np.sum(x,axis=-1)**2)
         #val = -0.5*(np.sum(x**2,axis=-1))
         out = intp.evaluate(np.c_[x, np.ones(len(x))*times_orig[t]], ret_out=True)
-        print(out.shape)
+        out /= (4e6)**2 # scaling 40 Mpc source distance with source assumed emitting from 10 pc
         val = -0.5*np.sum(((obs[mask, 1]-out[:, mask])/obs[mask, 2])**2, axis=1)
-        #print(val)
+        val += 40*len(mask)
+        val -= np.max(val)
+        print(val)
         return val
 
     #residuals = residual_function(pred)
