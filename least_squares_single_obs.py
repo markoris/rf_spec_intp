@@ -63,7 +63,7 @@ def least_squares(t, times_orig, spectra, prediction, trim_wavs=False, metz_mode
         obs = obs[wav_trim, :]
     mask = np.where(obs[:, 1] > 0)[0]
     print(len(mask), '/%d wav bins used' % obs.shape[0])
-    residuals = 0.5*np.sum(((obs[mask, 1]-pred[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
+    residuals = np.sum(((obs[mask, 1]-pred[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
     #residuals = np.sum((0.5*(obs[mask, 1]-pred[:, mask])/np.sqrt(obs[mask, 2]**2+pred_err**2))**2, axis=1)*1/len(mask)
     if save_L:
         np.savetxt('/lustre/scratch4/turquoise/mristic/at2017gfo_likelihoods_t%g.dat' % times_orig[t], residuals, fmt="%g", header="Likelihood for AT2017gfo spectrum at %g days" % times_orig[t])
@@ -81,13 +81,63 @@ def get_best_match(samples, prediction, residuals):
     return best_params, best_spec
     #return best_params, best_spec, best_spec_err 
 
+def rift_parameter_uncertainty(prediction, spectra, t, times_orig, trim_wavs=False, metz_model=False):
+
+    import RIFT.integrators.MonteCarloEnsemble as monte_carlo_integrator
+
+    pred = prediction[t::10]
+    if metz_model:
+        tdays, Ltot, flux, _ = m17.calc_lc(t_ini, times_orig[t]+dt, dt, m, v, beta, k, wav_trim=trim_wavs)
+        flux = flux[:, -2]*1e-8 # scales metzger model to our units per Angstrom instead of per cm
+        pred += flux
+    obs = np.loadtxt(spectra[t])
+    if trim_wavs:
+        wav_trim = np.where((obs[:, 0] > 0.39*1e4) & (obs[:, 0] < 2.4*1e4))[0]
+        obs = obs[wav_trim, :]
+    mask = np.where(obs[:, 1] > 0)[0]
+    
+    dim = 4
+    bounds = {(0,): np.array([[0.001, 0.1]]), (1,): np.array([[0.05, 0.3]]), (2,): np.array([[0.001, 0.1]]), (3,): np.array([[0.05, 0.3]])}
+    gmm_dict = {(0,): None, (1,):None, (2,): None, (3,): None}
+    ncomp = 1
+
+    def prior(x):
+        return np.ones_like(x[:,0])
+
+    def residual_function(x):
+        #val =100 -0.5*(np.sum(x,axis=-1)**2)
+        #val = -0.5*(np.sum(x**2,axis=-1))
+        out = intp.evaluate(np.c_[x, np.ones(len(x))*times_orig[t]], ret_out=True)
+        print(out.shape)
+        val = -0.5*np.sum(((obs[mask, 1]-out[:, mask])/obs[mask, 2])**2, axis=1)
+        #print(val)
+        return val
+
+    #residuals = residual_function(pred)
+
+    integrator = monte_carlo_integrator.integrator(dim, bounds, gmm_dict, ncomp, proc_count=None, use_lnL=True, user_func=sys.stdout.flush(), prior=prior)
+    integrator.integrate(residual_function, min_iter=20, max_iter=20, progress=True, epoch=2, use_lnL=True)
+    
+    int_samples = integrator.cumulative_samples
+    lnL = residual_function(int_samples)
+    p = integrator.cumulative_p
+    p_s = integrator.cumulative_p_s
+    
+    weights = np.exp(lnL)*p/p_s
+    
+    corner.corner(int_samples, weights=weights)
+    plt.savefig('rift_samples.pdf')
+    
+
 def parameter_uncertainty(samples, residuals, mask, t, times_orig):
     # undo len(mask) division from least squares calculation
     residuals *= len(mask)
     # fix such that largest value of L is 1
+    print(residuals.min(), residuals.mean(), residuals.max())
     residuals -= np.min(residuals)
+    print(residuals.min(), residuals.mean(), residuals.max())
     # calculate L
-    L = np.exp(-1*residuals)
+    L = np.exp(-0.5*residuals)
     # find sorting indices for ascending L such that L_N is largest L value
     idx_sort_L = np.argsort(L)
     # sort x_k and L by increasing L
@@ -200,7 +250,7 @@ use_rf_err = False
 wavs_supernu = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024)*1e4 # from cm to microns (via 1e4 scaling factor)
 if trim_wavs: wavs_supernu = wavs_supernu[np.where((wavs_supernu > 0.39) & (wavs_supernu < 2.4))[0]]
 #n_samples = 10000
-n_samples = 100000
+n_samples = 100
 at2017gfo_spectra, times_orig = load_obs_data('binned_at2017gfo_spectra/*.dat')
 samples, inputs = generate_samples(n_samples, times_orig)
 intp = load_interpolator('/lustre/scratch4/turquoise/mristic/knsc1_active_learning/*spec*', \
@@ -231,6 +281,7 @@ for t in range(len(times_orig)):
         recov = np.c_[best_params.reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
         recovered_parameters = recov
 
+    rift_parameter_uncertainty(pred, at2017gfo_spectra, t, times_orig=times_orig, trim_wavs=True, metz_model=False)
     parameter_uncertainty(samples, residuals, mask, t, times_orig)
 
     make_plots(obs, best_spec, wavs_supernu, times_orig)
