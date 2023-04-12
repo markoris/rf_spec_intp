@@ -119,7 +119,7 @@ def rift_parameter_uncertainty(prediction, spectra, t, times_orig, trim_wavs=Fal
     #residuals = residual_function(pred)
 
     integrator = monte_carlo_integrator.integrator(dim, bounds, gmm_dict, ncomp, proc_count=None, use_lnL=True, prior=prior, return_lnI=True, temper_log=True)
-    integrator.integrate(residual_function, min_iter=1, max_iter=1, progress=False, epoch=2, use_lnL=True, return_lnI=True, temper_log=True, verbose=True)
+    integrator.integrate(residual_function, min_iter=20, max_iter=20, progress=False, epoch=2, use_lnL=True, return_lnI=True, temper_log=True, verbose=True)
     
     int_samples = integrator.cumulative_samples
     lnL = residual_function(int_samples)
@@ -127,12 +127,12 @@ def rift_parameter_uncertainty(prediction, spectra, t, times_orig, trim_wavs=Fal
     p = integrator.cumulative_p
     p_s = integrator.cumulative_p_s
     my_random_number = np.random.randint(50)
-    np.savetxt('rift_samples_%d_t%g.dat' % (my_random_number, times_orig[t]), np.c_[int_samples, lnL, p, p_s])
+    np.savetxt('rift_runs/rift_samples_%d_t%g.dat' % (my_random_number, times_orig[t]), np.c_[int_samples, lnL, p, p_s])
     
     weights = np.exp(lnL)*p/p_s
     
     corner.corner(int_samples, weights=weights)
-    plt.savefig('rift_samples_%d_t%g.pdf' % (my_random_number, times_orig[t]))
+    plt.savefig('rift_runs/rift_samples_%d_t%g.pdf' % (my_random_number, times_orig[t]))
     
 
 def parameter_uncertainty(samples, residuals, mask, t, times_orig):
@@ -255,8 +255,8 @@ metz_model = False
 use_rf_err = False
 wavs_supernu = np.logspace(np.log10(1e-5), np.log10(1.28e-3), 1024)*1e4 # from cm to microns (via 1e4 scaling factor)
 if trim_wavs: wavs_supernu = wavs_supernu[np.where((wavs_supernu > 0.39) & (wavs_supernu < 2.4))[0]]
-#n_samples = 10000
-n_samples = 100
+n_samples = 100000
+#n_samples = 100
 at2017gfo_spectra, times_orig = load_obs_data('binned_at2017gfo_spectra/*.dat')
 samples, inputs = generate_samples(n_samples, times_orig)
 intp = load_interpolator('/lustre/scratch4/turquoise/mristic/knsc1_active_learning/*spec*', \
@@ -287,8 +287,8 @@ for t in range(len(times_orig)):
         recov = np.c_[best_params.reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
         recovered_parameters = recov
 
-    rift_parameter_uncertainty(pred, at2017gfo_spectra, t, times_orig=times_orig, trim_wavs=True, metz_model=False)
-    #parameter_uncertainty(samples, residuals, mask, t, times_orig)
+    #rift_parameter_uncertainty(pred, at2017gfo_spectra, t, times_orig=times_orig, trim_wavs=True, metz_model=False)
+    parameter_uncertainty(samples, residuals, mask, t, times_orig)
 
     make_plots(obs, best_spec, wavs_supernu, times_orig)
     #make_plots(obs, best_spec, best_spec_err, wavs_supernu, times_orig)
