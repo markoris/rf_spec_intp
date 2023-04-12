@@ -33,10 +33,24 @@ times_orig = np.array(times_orig).reshape(-1, 1)
 #times = np.tile(times_orig, (n_draws, 1)) # 100000x1 array, 10x1 array repeated 10000 times for 10000 draws
 #inputs = np.concatenate((draws, times), axis=1) # 100000x5 array, 4 ejecta parameters and 1 time parameter
 
-draws_orig = np.loadtxt('samples.dat')
-draws = np.repeat(draws_orig, len(times_orig), axis=0) # 100000x4 array, 10000x4 array repeated 10 times for 10 observations
-times = np.tile(times_orig, (draws_orig.shape[0], 1)) # 100000x1 array, 10x1 array repeated 10000 times for 10000 draws
-inputs = np.concatenate((draws, times), axis=1) # 100000x5 array, 4 ejecta parameters and 1 time parameter
+#draws_orig = np.loadtxt('samples.dat')
+#draws = np.repeat(draws_orig, len(times_orig), axis=0) # 100000x4 array, 10000x4 array repeated 10 times for 10 observations
+#times = np.tile(times_orig, (draws_orig.shape[0], 1)) # 100000x1 array, 10x1 array repeated 10000 times for 10000 draws
+#inputs = np.concatenate((draws, times), axis=1) # 100000x5 array, 4 ejecta parameters and 1 time parameter
+
+
+best_fit_params =  [[10**(-1.14), 0.12, 10**(-1.61), 0.06],
+                    [10**(-1.34), 0.14, 10**(-1.99), 0.08],
+                    [10**(-1.08), 0.13, 10**(-1.63), 0.16],
+                    [10**(-1.53), 0.13, 10**(-1.58), 0.22],
+                    [10**(-1.65), 0.21, 10**(-1.73), 0.07],
+                    [10**(-1.64), 0.30, 10**(-1.79), 0.08],
+                    [10**(-1.70), 0.30, 10**(-1.78), 0.05],
+                    [10**(-1.92), 0.15, 10**(-1.58), 0.08],
+                    [10**(-1.79), 0.26, 10**(-1.84), 0.24],
+                    [10**(-1.58), 0.25, 10**(-2.07), 0.25]]
+# these parameters come from running plot_corner.py on the RIFT samples in $SCRATCH/rift_runs  
+inputs = np.c_[best_fit_params, times_orig]
 
 intp = si.intp(rf=True)
 intp.load_data('/lustre/scratch4/turquoise/mristic/knsc1_active_learning/*spec*', '/lustre/scratch4/turquoise/mristic/h5_data/TP_wind2_spectra.h5', t_max=None, theta=0, trim_dataset=True)
@@ -59,7 +73,8 @@ if trim_wavs: wavs_supernu = wavs_supernu[np.where((wavs_supernu > 0.39) & (wavs
 
 for t in range(len(times_orig)):
 	print('t = ', times_orig[t])
-	pred = out[t::10] # [n_draws, 1024] shape array
+	#pred = out[t::10] # [n_draws, 1024] shape array
+	pred = out[t]
 	tdays, Ltot, flux, _ = m17.calc_lc(t_ini, times_orig[t]+dt, dt, m, v, beta, k, wav_trim=True)
 	flux = flux[:, -2]*1e-8
 	pred_metz = pred + flux # COMMENT OUT IF NO METZGER MODEL INCLUSION
@@ -77,34 +92,34 @@ for t in range(len(times_orig)):
 		sim_3c_nickel_wind = data_3c_nickel_wind[t_idx, :, 2]
 	sim_3c_nickel_wind *= 54/(4e6)**2
 
-	residuals = np.sum(((obs[mask, 1]-pred[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
-	residuals_metz = np.sum(((obs[mask, 1]-pred_metz[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
+	#residuals = np.sum(((obs[mask, 1]-pred[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
+	#residuals_metz = np.sum(((obs[mask, 1]-pred_metz[:, mask])/obs[mask, 2])**2, axis=1)*1/len(mask)
 	#np.savetxt('/lustre/scratch4/turquoise/mristic/at2017gfo_likelihoods_t%g.dat' % times_orig[t], np.c_[draws_orig, residuals], fmt="%g", header="md vd mw vw residuals") 
 
-	residuals = np.loadtxt('/lustre/scratch4/turquoise/mristic/at2017gfo_likelihoods_t%g.dat' % times_orig[t])
+	#residuals = np.loadtxt('/lustre/scratch4/turquoise/mristic/at2017gfo_likelihoods_t%g.dat' % times_orig[t])
 
 	#residuals -= np.min(residuals)
 	#residuals = np.exp(-1*residuals)
 	#idx_max_L = np.argmax(residuals)
-	idx_max_L = np.argmin(residuals)
-	idx_max_L_metz = np.argmin(residuals_metz)
-	print('Lowest residual: ', residuals[idx_max_L])
-	pred = pred[idx_max_L]
-	pred_metz = pred_metz[idx_max_L_metz]
+	#idx_max_L = np.argmin(residuals)
+	#idx_max_L_metz = np.argmin(residuals_metz)
+	#print('Lowest residual: ', residuals[idx_max_L])
+	#pred = pred[idx_max_L]
+	#pred_metz = pred_metz[idx_max_L_metz]
 
-	print('Best 2c parameters for time %g = ' % times_orig[t], draws_orig[idx_max_L])
-	print('Best 3c (metzger) parameters for time %g = ' % times_orig[t], draws_orig[idx_max_L_metz])
+	#print('Best 2c parameters for time %g = ' % times_orig[t], draws_orig[idx_max_L])
+	#print('Best 3c (metzger) parameters for time %g = ' % times_orig[t], draws_orig[idx_max_L_metz])
 
-	try:
-		recov = np.c_[draws_orig[idx_max_L].reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
-		recovered_parameters = np.concatenate((recovered_parameters, recov), axis=0)
-		recov_metz = np.c_[draws_orig[idx_max_L_metz].reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
-		recovered_parameters_metz = np.concatenate((recovered_parameters_metz, recov_metz), axis=0)
-	except NameError:
-		recov = np.c_[draws_orig[idx_max_L].reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
-		recovered_parameters = recov
-		recov_metz = np.c_[draws_orig[idx_max_L_metz].reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
-		recovered_parameters_metz = recov_metz
+	#try:
+	#	recov = np.c_[draws_orig[idx_max_L].reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
+	#	recovered_parameters = np.concatenate((recovered_parameters, recov), axis=0)
+	#	recov_metz = np.c_[draws_orig[idx_max_L_metz].reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
+	#	recovered_parameters_metz = np.concatenate((recovered_parameters_metz, recov_metz), axis=0)
+	#except NameError:
+	#	recov = np.c_[draws_orig[idx_max_L].reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
+	#	recovered_parameters = recov
+	#	recov_metz = np.c_[draws_orig[idx_max_L_metz].reshape(1, 4), np.array(len(mask)/1024).reshape(1, 1)]
+	#	recovered_parameters_metz = recov_metz
 
 	obs = obs[mask, :]
 
