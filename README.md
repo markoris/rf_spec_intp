@@ -1,2 +1,2 @@
-# nn_spec_intp
+# rf_spec_intp
 Spectral interpolation for kilonovae using random forests
