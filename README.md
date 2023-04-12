@@ -1,2 +1,2 @@
 # nn_spec_intp
-Spectral interpolation for kilonovae using neural networks
+Spectral interpolation for kilonovae using random forests
