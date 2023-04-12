@@ -19,6 +19,19 @@ train_rf: prefix
 	@echo "python -u run_spectra_interpolator.py" >> runjob.sh
 	@sbatch runjob.sh
 
+rift_sampling: prefix
+	@echo "python -u rift_integrator_sampling.py $(t)" >> runjob.sh
+	@sbatch runjob.sh
+
+rift_plotting: prefix
+	cd /lustre/scratch4/turquoise/mristic/rift_runs
+	@echo "python -u plot_corner.py" >> runjob.sh
+	@sbatch runjob.sh
+
+best_fit_from_rift: prefix
+	@echo "python -u get_lnL_max.py" >> runjob.sh
+	@sbatch runjob.sh
+
 least_squares_single_obs: prefix
 	@echo "python -u least_squares_single_obs.py" >> runjob.sh
 	@sbatch runjob.sh
