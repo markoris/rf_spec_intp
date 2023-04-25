@@ -69,6 +69,7 @@ def make_plots(obs, best_spec, wavs_supernu, times_orig):
     
     for i in range(len(cutoffs)-1):
         plt.plot(obs[cutoffs[i]:cutoffs[i+1], 0], obs[cutoffs[i]:cutoffs[i+1], 1], c='k')
+    plt.errorbar(obs[::10, 0], obs[::10, 1], yerr=obs[::10, 2], c='k', linestyle="None")
     plt.plot(wavs_supernu, best_spec, c='r', label=r'$F_{\lambda, \rm intp}$')
     #plt.fill_between(wavs_supernu, best_spec-best_spec_err, best_spec+best_spec_err, alpha=0.3, c='r')
     plt.title('%g d' % times_orig[t], loc="left", x=0.02, y=1.0, pad=-40)
