@@ -17,7 +17,8 @@ def load_obs_data(path_to_binned_obs):
 
 def load_interpolator(path_to_sims, path_to_h5, path_to_model):
     intp = si.intp(rf=True)
-    intp.load_data(path_to_sims, path_to_h5, t_max=None, theta=0, trim_dataset=True)
+    #intp.load_data(path_to_sims, path_to_h5, t_max=None, theta=0, trim_dataset=True)
+    intp.load_data(path_to_sims, path_to_h5, t_max=None, theta=30, trim_dataset=True)
     intp.append_input_parameter(intp.times, 1)
     intp.preprocess()
     intp.load(path_to_model, fixed_angle=True)
@@ -89,22 +90,40 @@ def make_plots(obs, best_spec, wavs_supernu, times_orig):
 
 at2017gfo_spectra, times_orig = load_obs_data('binned_at2017gfo_spectra/*.dat')
 
-best_fit_params =  [[10**(-1.14), 0.12, 10**(-1.61), 0.06],
-                    [10**(-1.34), 0.14, 10**(-1.99), 0.08],
-                    [10**(-1.08), 0.13, 10**(-1.63), 0.16],
-                    [10**(-1.53), 0.13, 10**(-1.58), 0.22],
-                    [10**(-1.65), 0.21, 10**(-1.73), 0.07],
-                    [10**(-1.64), 0.30, 10**(-1.79), 0.08],
-                    [10**(-1.70), 0.30, 10**(-1.78), 0.05],
-                    [10**(-1.92), 0.15, 10**(-1.58), 0.08],
-                    [10**(-1.79), 0.26, 10**(-1.84), 0.24],
-                    [10**(-1.58), 0.25, 10**(-2.07), 0.25]]
+# theta = 0
+#best_fit_params =  [[10**(-1.14), 0.12, 10**(-1.61), 0.06],
+#                    [10**(-1.34), 0.14, 10**(-1.99), 0.08],
+#                    [10**(-1.08), 0.13, 10**(-1.63), 0.16],
+#                    [10**(-1.53), 0.13, 10**(-1.58), 0.22],
+#                    [10**(-1.65), 0.21, 10**(-1.73), 0.07],
+#                    [10**(-1.64), 0.30, 10**(-1.79), 0.08],
+#                    [10**(-1.70), 0.30, 10**(-1.78), 0.05],
+#                    [10**(-1.92), 0.15, 10**(-1.58), 0.08],
+#                    [10**(-1.79), 0.26, 10**(-1.84), 0.24],
+#                    [10**(-1.58), 0.25, 10**(-2.07), 0.25]]
+
+# theta = 30
+best_fit_params =  [[10**(-2.07), 0.16, 10**(-1.89), 0.07],
+                    [10**(-1.38), 0.15, 10**(-2.03), 0.13],
+                    [10**(-1.26), 0.13, 10**(-1.75), 0.19],
+                    [10**(-2.03), 0.16, 10**(-1.74), 0.11],
+                    [10**(-1.57), 0.15, 10**(-1.77), 0.07],
+                    [10**(-1.60), 0.27, 10**(-1.80), 0.09],
+                    [10**(-1.61), 0.30, 10**(-1.80), 0.09],
+                    [10**(-1.88), 0.18, 10**(-1.52), 0.08],
+                    [10**(-1.34), 0.21, 10**(-1.80), 0.26],
+                    [10**(-1.53), 0.23, 10**(-2.01), 0.22]]
 # these parameters come from running plot_corner.py on the RIFT samples in $SCRATCH/rift_runs  
+
+
+
 best_fit_params = np.c_[best_fit_params, times_orig]
 
 intp = load_interpolator('/lustre/scratch4/turquoise/mristic/knsc1_active_learning/*spec*', \
                          '/lustre/scratch4/turquoise/mristic/h5_data/TP_wind2_spectra.h5', \
-                         '/lustre/scratch4/turquoise/mristic/rf_spec_intp_optim_trimdata_theta00deg.joblib')
+                         #'/lustre/scratch4/turquoise/mristic/rf_spec_intp_optim_trimdata_theta00deg.joblib')
+                         #'/lustre/scratch4/turquoise/mristic/rf_spec_intp_optim_trimdata_theta30deg.joblib')
+                         '/lustre/scratch4/turquoise/mristic/rf_spec_intp_theta30deg.joblib')
 out = intp.evaluate(best_fit_params, ret_out=True) # shape [n_draws*len(times), 1024]
 out /= (4e6)**2 # scaling 40 Mpc source distance with source assumed emitting from 10 pc
 
