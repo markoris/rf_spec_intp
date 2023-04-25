@@ -41,13 +41,15 @@ def convert_dat_to_h5(path_to_sims_dir, path_to_h5_out, cutoff=42):
 	h5py_dataset.close()
 
 	print('Total conversion from dat to hdf5 took %g minutes' % (round((datetime.now()-start).total_seconds()/60), 3))
-import argparse
 
-parser = argparse.ArgumentParser(description="Convert a directory of SuperNu spec.dat outputs to hdf5 format for faster data I/O.")
-parser.add_argument('path_to_sims_dir', type=str, help='Path to directory containing SuperNu spec.dat data files.')
-parser.add_argument('path_to_hdf5_out', type=str, help='Path to hdf5 file output.')
-parser.add_argument('--cutoff', type=float, default=38.055, help='Time at which to cut off spectra. Default is maximum value in common for all spectra.') 
-
-args = parser.parse_args()
-
-convert_dat_to_h5(args.path_to_sims_dir, args.path_to_hdf5_out, args.cutoff)
+if __name__ == "__main__":
+	import argparse
+	
+	parser = argparse.ArgumentParser(description="Convert a directory of SuperNu spec.dat outputs to hdf5 format for faster data I/O.")
+	parser.add_argument('path_to_sims_dir', type=str, help='Path to directory containing SuperNu spec.dat data files.')
+	parser.add_argument('path_to_hdf5_out', type=str, help='Path to hdf5 file output.')
+	parser.add_argument('--cutoff', type=float, default=38.055, help='Time at which to cut off spectra. Default is maximum value in common for all spectra.') 
+	
+	args = parser.parse_args()
+	
+	convert_dat_to_h5(args.path_to_sims_dir, args.path_to_hdf5_out, args.cutoff)
