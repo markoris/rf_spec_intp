@@ -16,7 +16,7 @@ prefix:
 	@echo "$$PREFIX" > runjob.sh
 
 train_rf: prefix
-	@echo "python -u run_spectra_interpolator.py" >> runjob.sh
+	@echo "python -u spectra_interpolator_setup.py time --fixed_value 0 --trim_dataset" >> runjob.sh
 	@sbatch runjob.sh
 
 rift_sampling: prefix
@@ -53,7 +53,7 @@ least_squares_single_obs_sims: prefix
 	@sbatch runjob.sh
 
 least_squares_all_times: prefix
-	@echo "pythoni -u least_squares.py" >> runjob.sh
+	@echo "python -u least_squares.py" >> runjob.sh
 	@sbatch runjob.sh
 
 sim_obs_overlap: prefix
