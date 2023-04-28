@@ -33,7 +33,7 @@ for obs_file in at2017gfo_spectra:
 		#if n_okay == 0: binned_spectrum[wavbin] = -1
 		else:
 			binned_spectrum[wavbin] = np.mean(obs[mask, 1])
-			binned_spec_err[wavbin] = np.sqrt(np.mean(obs[mask, 3]**2))	
+			binned_spec_err[wavbin] = np.sqrt((1/len(mask))*np.mean(obs[mask, 3]**2))
 			#binned_spec_err[wavbin] = np.sqrt(np.sum(obs[mask, 3]**2))	
 
 	negative_idxs = np.where(binned_spectrum<0)[0]
