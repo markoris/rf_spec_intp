@@ -43,13 +43,41 @@ def rift_parameter_uncertainty(spectra, t, times_orig, trim_wavs=False, metz_mod
         return np.ones_like(x[:,0])
 
     def residual_function(x):
+        import datetime
+        import numexpr as ne
+        
         #val =100 -0.5*(np.sum(x,axis=-1)**2)
         #val = -0.5*(np.sum(x**2,axis=-1))
-        out = intp.evaluate(np.c_[x, np.ones(len(x))*times_orig[t]], ret_out=True)
+        start = datetime.datetime.now()
+        inputs = np.c_[x, np.ones(len(x))*times_orig[t]]
+        print('inputs shape = ', inputs.shape)
+        out = intp.evaluate(inputs, ret_out=True)
+        print('out shape = ', out.shape)
+        #out = intp.evaluate(np.c_[x, np.ones(len(x))*times_orig[t]], ret_out=True)
         if metz_model: out += flux
         out /= (4e6)**2 # scaling 40 Mpc source distance with source assumed emitting from 10 pc
+        print('RF PREDICTION TAKES ', datetime.datetime.now()-start)
+
+        # take log of md, mw, and time
+        start = datetime.datetime.now()
+        inputs[:, [0, 2, 4]] = np.log10(inputs[:, [0, 2, 4]])
+        pred = np.array([tree.predict(inputs) for tree in intp.intp.rfr])
+
+        std_spec = intp.std_spec
+        mu_spec = intp.mu_spec
+	
+        pred = ne.evaluate('pred*std_spec')
+        pred = ne.evaluate('pred+mu_spec')
+        
+        pred = ne.evaluate('10**pred')
+        pred = ne.evaluate('pred / (4e6)**2')
+        
+        pred_err = pred.std(axis=0)
+        print(pred_err.mean())
+        print('STD DEV END-TO-END TAKES ', datetime.datetime.now()-start)
+
         obs_error_factor = 3
-        val = -0.5*np.sum(((obs[mask, 1]-out[:, mask])/(obs_error_factor*obs[mask, 2]))**2, axis=1)
+        val = -0.5*np.sum(((obs[mask, 1]-out[:, mask])**2/(pred_err[:, mask]**2 + (obs_error_factor*obs[mask, 2])**2)), axis=1)
         val += 40*len(mask)
         #val -= np.max(val)
         print(val)
@@ -59,7 +87,7 @@ def rift_parameter_uncertainty(spectra, t, times_orig, trim_wavs=False, metz_mod
     #residuals = residual_function(pred)
 
     integrator = monte_carlo_integrator.integrator(dim, bounds, gmm_dict, ncomp, proc_count=None, use_lnL=True, prior=prior, return_lnI=True, temper_log=True)
-    integrator.integrate(residual_function, min_iter=100, max_iter=500, progress=False, epoch=2, use_lnL=True, return_lnI=True, temper_log=True, verbose=True)
+    integrator.integrate(residual_function, min_iter=100, max_iter=250, progress=False, epoch=2, use_lnL=True, return_lnI=True, temper_log=True, verbose=True)
     
     int_samples = integrator.cumulative_samples
     lnL = residual_function(int_samples)
@@ -67,12 +95,13 @@ def rift_parameter_uncertainty(spectra, t, times_orig, trim_wavs=False, metz_mod
     p = integrator.cumulative_p
     p_s = integrator.cumulative_p_s
     my_random_number = np.random.randint(999)
-    np.savetxt('/lustre/scratch4/turquoise/mristic/rift_runs/rift_samples_%d_t%g.dat' % (my_random_number, times_orig[t]), np.c_[int_samples, lnL, p, p_s])
+    savedir = 'theta00deg_obs_plus_model_err'
+    np.savetxt('/lustre/scratch4/turquoise/mristic/rift_runs/%s/rift_samples_%d_t%g.dat' % (savedir, my_random_number, times_orig[t]), np.c_[int_samples, lnL, p, p_s])
     
     weights = np.exp(lnL)*p/p_s
     
     corner.corner(int_samples, weights=weights)
-    plt.savefig('/lustre/scratch4/turquoise/mristic/rift_runs/rift_samples_%d_t%g.pdf' % (my_random_number, times_orig[t]))
+    plt.savefig('/lustre/scratch4/turquoise/mristic/rift_runs/%s/rift_samples_%d_t%g.pdf' % (savedir, my_random_number, times_orig[t]))
     
 trim_wavs = True
 metz_model = False
@@ -88,6 +117,7 @@ at2017gfo_spectra, times_orig = load_obs_data('binned_at2017gfo_spectra/*.dat')
 intp = load_interpolator('/lustre/scratch4/turquoise/mristic/knsc1_active_learning/*spec*', \
                          '/lustre/scratch4/turquoise/mristic/h5_data/TP_wind2_spectra.h5', \
                          '/lustre/scratch4/turquoise/mristic/rf_spec_intp_optim_trimdata_theta00deg.joblib')
+                         #'/lustre/scratch4/turquoise/mristic/rf_spec_intp_theta30deg.joblib')
 
 print('t = ', times_orig[t])
-rift_parameter_uncertainty(at2017gfo_spectra, t, times_orig=times_orig, trim_wavs=True, metz_model=False)
+rift_parameter_uncertainty(at2017gfo_spectra, t, times_orig=times_orig, trim_wavs=trim_wavs, metz_model=False)
