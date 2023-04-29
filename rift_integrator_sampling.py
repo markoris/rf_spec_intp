@@ -48,36 +48,35 @@ def rift_parameter_uncertainty(spectra, t, times_orig, trim_wavs=False, metz_mod
         
         #val =100 -0.5*(np.sum(x,axis=-1)**2)
         #val = -0.5*(np.sum(x**2,axis=-1))
-        start = datetime.datetime.now()
         inputs = np.c_[x, np.ones(len(x))*times_orig[t]]
-        print('inputs shape = ', inputs.shape)
+#        print('inputs shape = ', inputs.shape)
         out = intp.evaluate(inputs, ret_out=True)
-        print('out shape = ', out.shape)
+#        print('out shape = ', out.shape)
         #out = intp.evaluate(np.c_[x, np.ones(len(x))*times_orig[t]], ret_out=True)
         if metz_model: out += flux
         out /= (4e6)**2 # scaling 40 Mpc source distance with source assumed emitting from 10 pc
-        print('RF PREDICTION TAKES ', datetime.datetime.now()-start)
 
         # take log of md, mw, and time
-        start = datetime.datetime.now()
-        inputs[:, [0, 2, 4]] = np.log10(inputs[:, [0, 2, 4]])
-        pred = np.array([tree.predict(inputs) for tree in intp.intp.rfr])
-
-        std_spec = intp.std_spec
-        mu_spec = intp.mu_spec
-	
-        pred = ne.evaluate('pred*std_spec')
-        pred = ne.evaluate('pred+mu_spec')
-        
-        pred = ne.evaluate('10**pred')
-        pred = ne.evaluate('pred / (4e6)**2')
-        
-        pred_err = pred.std(axis=0)
-        print(pred_err.mean())
-        print('STD DEV END-TO-END TAKES ', datetime.datetime.now()-start)
+#        start = datetime.datetime.now()
+#        inputs[:, [0, 2, 4]] = np.log10(inputs[:, [0, 2, 4]])
+#        pred = np.array([tree.predict(inputs) for tree in intp.intp.rfr])
+#
+#        std_spec = intp.std_spec
+#        mu_spec = intp.mu_spec
+#	
+#        pred = ne.evaluate('pred*std_spec')
+#        pred = ne.evaluate('pred+mu_spec')
+#        
+#        pred = ne.evaluate('10**pred')
+#        pred = ne.evaluate('pred / (4e6)**2')
+#        
+#        pred_err = pred.std(axis=0)
+#        print(pred_err.mean())
+#        print('STD DEV END-TO-END TAKES ', datetime.datetime.now()-start)
 
         obs_error_factor = 3
         val = -0.5*np.sum(((obs[mask, 1]-out[:, mask])**2/(pred_err[:, mask]**2 + (obs_error_factor*obs[mask, 2])**2)), axis=1)
+        del pred, pred_err
         val += 40*len(mask)
         #val -= np.max(val)
         print(val)
