@@ -26,7 +26,7 @@ if args.intp_params == "ejecta":
     intp.create_test_set(size=args.test_set_size)
     intp.preprocess()
     intp.train()
-    intp.save(name=scratch+'rf_spec_intp_optim_trimdata.joblib')
+    intp.save(name='./rf_spec_intp_optim_trimdata.joblib')
     intp.evaluate()
     intp.make_plots()
 
