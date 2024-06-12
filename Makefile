@@ -15,6 +15,9 @@ export PREFIX
 prefix:
 	@echo "$$PREFIX" > runjob.sh
 
+train_rf_cardassia:
+	python -u spectra_interpolator_setup.py ejecta --trim_dataset
+
 train_rf: prefix
 	@echo "python -u spectra_interpolator_setup.py time --fixed_value 0 --trim_dataset" >> runjob.sh
 	@sbatch runjob.sh
