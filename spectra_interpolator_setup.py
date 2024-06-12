@@ -18,7 +18,7 @@ args = parser.parse_args()
 
 print(args.intp_params)
 
-scratch = '/lustre/scratch4/turquoise/mristic/'
+scratch = '/home/marko.ristic/'
 
 if args.intp_params == "ejecta":
     intp = si.intp(seed=12, rf=True)

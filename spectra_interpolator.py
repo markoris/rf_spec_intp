@@ -196,6 +196,7 @@ class intp(object):
 
 		test_times = np.random.choice(self.times, size, replace=True)
 		test_angles = np.random.choice(self.angles, size, replace=True)
+		t10idx = np.argmin(np.abs(self.times-10.4))
 
 		counter = 0 # remove me when done making plots for paper
 
@@ -204,9 +205,10 @@ class intp(object):
 			if test_indices[idx] < 37: counter += 1
 
 			param = self.params[test_indices[idx]]
-			param = np.concatenate((param, test_times[idx].reshape(1)))
+			if self.t_max is None: param = np.concatenate((param, test_times[idx].reshape(1)))
 			if self.t_max is None: spec = self.spectra[test_indices[idx], np.argmin(np.abs(self.times-test_times[idx]))]
 			if self.theta is None: spec = self.spectra[test_indices[idx], :, np.argmin(np.abs(self.angles-test_angles[idx]))]
+			else: spec = self.spectra[test_indices[idx]] 
 			self.params = np.delete(self.params, test_indices[idx], axis=0)
 			self.spectra = np.delete(self.spectra, test_indices[idx], axis=0)
 
@@ -223,7 +225,6 @@ class intp(object):
 		param = self.params[37-counter] # same as param2, but need 2 different input times
 		#param2 = self.params[37-counter]
 		#if self.t_max is None: param = np.concatenate((param, self.times[51].reshape(1))) # 10-day time input
-		t10idx = np.argmin(np.abs(self.times-10.4))
 		if self.t_max is None: param = np.concatenate((param, self.times[t10idx].reshape(1))) # 10-day time input
 		if self.theta is None: param = np.concatenate((param, self.angles[0].reshape(1))) # 0 degree angle input
 		#param2 = np.concatenate((param2, self.times[57].reshape(1))) # 17-day time input
